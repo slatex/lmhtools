@@ -68,15 +68,16 @@ class StatsGatherer(object):
 
     def push_defi(self, name, string):
         assert self.mod_type == "mhmodnl"
-        self.defis.append(
-            {
+        entry = {
                 "mod_name" : self.mod_name,
                 "repo" : self.repo,
                 "lang" : self.lang,
                 "name" : name,
                 "string" : string
             }
-        )
+        if entry in self.defis:
+            self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'")
+        self.defis.append(entry)
 
     def push_trefi(self):
         self.trefis.append(
@@ -179,12 +180,12 @@ def harvest(string, name, gatherer):
             required_end_module = TOKEN_END_MHMODNL
             gatherer.set_module(name, "mhmodnl")
             if match.group("name") != name:
-                gatherer.print_file_message("Name does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
         elif token_type == TOKEN_BEGIN_GVIEWNL:
             required_end_module = TOKEN_END_GVIEWNL
             gatherer.set_module(name, "gviewnl")
             if match.group("name") != name:
-                gatherer.print_file_message("Name does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
         elif token_type == required_end_module:
             required_end_module = None
         else:
@@ -286,12 +287,12 @@ def PRINT_STATS(gatherer):
         dc = defis.unique_count(lang)
         sc = synsets.unique_count(lang)
         tc = trefis.counters[lang]
-        print(f"{lang:5}  defis: {dc:4}    synsets: {sc:4}    trefis: {tc:4}")
+        print(f"{lang:5}  synsets/symbols: {sc:4}    verbalizations: {dc:4}    symbol references: {tc:4}")
         total_synsets += sc
         total_defis += dc
         total_trefis += tc
 
-    print(f"TOTAL  defis: {total_defis:4}    synsets: {total_synsets:4}    trefis: {total_trefis:4}")
+    print(f"TOTAL  synsets/symbols: {total_synsets:4}    verbalizations: {total_defis:4}    symbol references: {total_trefis:4}")
     
 
 
@@ -304,7 +305,7 @@ def PRINT_STATS(gatherer):
         trefis.inc(entry["repo"])
 
     for repo in gatherer.modcounts["mhmodnl"]:
-        print(f"{repo:20} synsets: {synsets.unique_count(repo):4}    trefis: {trefis.get(repo):4}    mhmodnls: {gatherer.modcounts['mhmodnl'][repo]:4}    gviewnls: {gatherer.modcounts['gviewnl'][repo]:3}")
+        print(f"{repo:20} synsets/symbols: {synsets.unique_count(repo):4}    symbol references: {trefis.get(repo):4}    modules: {gatherer.modcounts['mhmodnl'][repo]:4}    gviewnls: {gatherer.modcounts['gviewnl'][repo]:3}")
 
 
 
