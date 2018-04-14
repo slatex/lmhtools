@@ -99,30 +99,32 @@ TOKEN_TREF           = 5
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
         r"\{mhmodnl\}\s*"
-        r"(?:\[[^\]]*\])?\s*"            # optional parameters
-        r"\{(?P<name>[\w-]+)\}\s*"       # name
-        r"\{(?P<lang>[\w-]+)\}"          # lang
+        r"(?:\[[^\]]*\])?\s*"                     # optional parameters
+        r"\{(?P<name>[\w-]+)\}\s*"                # name
+        r"\{(?P<lang>[\w-]+)\}"                   # lang
         )
 
 re_end_mhmodnl = re.compile(
         r"\\end\s*\{mhmodnl\}"
         )
 
+re_arg = r"(?:(?:[^\}\$]+)|(?:\$[^\$]+\$))+"
+
 re_def = re.compile(
-        r"\\def(?:i|ii|iii|iv)\s*"
-        r"(?:\[(?P<params>[^\]]*)\])?\s*" # parameters
-        r"\{(?P<arg0>[^\}]+)\}"           # arg0
-        r"(?:\s*\{(?P<arg1>[^\}]+)\})?"   # arg1
-        r"(?:\s*\{(?P<arg2>[^\}]+)\})?"   # arg2
-        r"(?:\s*\{(?P<arg3>[^\}]+)\})?"   # arg3
+        r"\\[Dd]ef(?:i|ii|iii|iv)\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
+        r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
+        r"(?:\s*\{(?P<arg2>" + re_arg + r")\})?"   # arg2
+        r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
         )
 
 re_begin_gviewnl = re.compile(
         r"\\begin\s*"
         r"\{gviewnl\}\s*"
-        r"(?:\[[^\]]*\])?\s*"            # optional parameters
-        r"\{(?P<name>[\w-]+)\}\s*"       # name
-        r"\{(?P<lang>[\w-]+)\}"          # lang
+        r"(?:\[[^\]]*\])?\s*"                      # optional parameters
+        r"\{(?P<name>[\w-]+)\}\s*"                 # name
+        r"\{(?P<lang>[\w-]+)\}"                    # lang
         )
 
 re_end_gviewnl = re.compile(
@@ -131,12 +133,12 @@ re_end_gviewnl = re.compile(
 
 # the tref* regex NEEDS CLARIFICATION! (mtref* etc?)
 re_tref = re.compile(
-        r"\\m?tref(?:i|ii|iii|iv)\s*"
-        r"(?:\[(?P<params>[^\]]*)\])?\s*" # parameters
-        r"\{(?P<arg0>[^\}]+)\}"           # arg0
-        r"(?:\s*\{(?P<arg1>[^\}]+)\})?"   # arg1
-        r"(?:\s*\{(?P<arg2>[^\}]+)\})?"   # arg2
-        r"(?:\s*\{(?P<arg3>[^\}]+)\})?"   # arg3
+        r"\\(?:mt|t|Mt|T)ref(?:i|ii|iii|iv)\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
+        r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
+        r"(?:\s*\{(?P<arg2>" + re_arg + r")\})?"   # arg2
+        r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
         )
 
 regexes = [
@@ -149,8 +151,12 @@ regexes = [
         ]
 
 
-def harvest(string, name, gatherer):
+def harvest(string, name, lang, gatherer):
     """ harvests the data from file content """
+
+    if name == "all":
+        gatherer.print_file_message("Skipping file")
+        return
     
     # Check module type
     tokens = parse(string, regexes)
@@ -181,11 +187,15 @@ def harvest(string, name, gatherer):
             gatherer.set_module(name, "mhmodnl")
             if match.group("name") != name:
                 gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+            if match.group("lang") != lang:
+                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name")
         elif token_type == TOKEN_BEGIN_GVIEWNL:
             required_end_module = TOKEN_END_GVIEWNL
             gatherer.set_module(name, "gviewnl")
             if match.group("name") != name:
                 gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+            if match.group("lang") != lang:
+                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name")
         elif token_type == required_end_module:
             required_end_module = None
         else:
@@ -211,7 +221,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
         gatherer.set_lang(lang)
         with open(path, "r") as in_file:
             try:
-                harvest(in_file.read(), name, gatherer)
+                harvest(in_file.read(), name, lang, gatherer)
             except Exception as ex:
                 gatherer.print_file_message(f"Error while processing file: '{str(ex)}'")
                 continue
@@ -228,6 +238,9 @@ def gather_stats_for_all_repos(directory):
     gatherer = StatsGatherer()
     for repo in os.listdir(directory):
         try:
+            if repo == "meta-inf":
+                print("Skipping meta-inf")
+                continue
             gatherer.set_repo(repo)
             gather_stats_for_repo(os.path.join(directory, repo), gatherer)
         except Exception as ex:
@@ -305,7 +318,7 @@ def PRINT_STATS(gatherer):
         trefis.inc(entry["repo"])
 
     for repo in gatherer.modcounts["mhmodnl"]:
-        print(f"{repo:20} synsets/symbols: {synsets.unique_count(repo):4}    symbol references: {trefis.get(repo):4}    modules: {gatherer.modcounts['mhmodnl'][repo]:4}    gviewnls: {gatherer.modcounts['gviewnl'][repo]:3}")
+        print(f"{repo:20} modules: {gatherer.modcounts['mhmodnl'][repo]:4}    synsets/symbols: {synsets.unique_count(repo):4}    symbol references: {trefis.get(repo):4}    gviewnls: {gatherer.modcounts['gviewnl'][repo]:3}")
 
 
 
