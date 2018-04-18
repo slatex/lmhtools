@@ -32,6 +32,29 @@ def get_params(param_str):
         }
 
 
+def get_file_position(string, offset):
+    """ can be used to get linenumber and character offset for a string offset """
+    if get_file_position.cached_string == string:
+        return get_file_position.cached_positions[offset]
+    get_file_position.cached_string = string
+    get_file_position.cached_positions = []
+    linenumber = 1
+    charnumber = 1
+    for c in string:
+        get_file_position.cached_positions.append((linenumber, charnumber))
+        if c == "\n":
+            linenumber += 1
+            charnumber = 1
+        else:
+            charnumber += 1
+    return get_file_position.cached_positions[offset]
+get_file_position.cached_string = ""
+get_file_position.cached_positions = []
+
+def get_file_pos_str(string, offset):
+    (line, char) = get_file_position(string, offset)
+    return f"{line}:{char}"
+
 
 class StatsGatherer(object):
     """ The stats gatherer gathers all the data and provides some cross-file functionality,
@@ -60,7 +83,10 @@ class StatsGatherer(object):
             if name in self.sigfiles[self.repo]:
                 self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}'")
             else:
-                self.sigfiles[self.repo][name] = type_
+                self.sigfiles[self.repo][name] = {
+                        "type" : type_,
+                        "path" : self.file,
+                        }
 
         self.modcounts[self.mod_type][self.repo] += 1
 
@@ -81,25 +107,29 @@ class StatsGatherer(object):
     def print_file_message(self, message):
         print(f"{self.file}: {message}")
 
-    def push_defi(self, name, string):
+    def push_defi(self, name, string, offset_str):
         assert self.mod_type == "mhmodnl"
         entry = {
                 "mod_name" : self.mod_name,
                 "repo" : self.repo,
                 "lang" : self.lang,
                 "name" : name,
-                "string" : string
+                "string" : string,
+                "offset" : offset_str,
+                "path" : self.file
             }
         if entry in self.defis:
             self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'")
         self.defis.append(entry)
 
-    def push_symi(self, name):
+    def push_symi(self, name, offset_str):
         assert self.mod_type == "modsig"
         entry = {
                 "mod_name" : self.mod_name,
                 "repo" : self.repo,
-                "name" : name
+                "name" : name,
+                "offset" : offset_str,
+                "path" : self.file
             }
         if entry in self.symis:
             self.print_file_message(f"Note: Symbol '{name}' was already introduced")
@@ -218,6 +248,8 @@ regexes = [
 
 def harvest_sig(string, name, gatherer):
     """ harvests the data from signature file content """
+    print_unexpected_token = lambda match : gatherer.print_file_message(
+            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'")
     if name == "all":
         gatherer.print_file_message("Skipping file")
         return
@@ -232,12 +264,12 @@ def harvest_sig(string, name, gatherer):
     for (match, token_type) in tokens:
         if token_type == TOKEN_SYM:
             if required_end_sig == None:
-                gatherer.print_file_message(f"Unexpected token type: {token_type}")
+                print_unexpected_token(match)
             args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
             args = [arg for arg in args if arg != None]
 
             name = "-".join(args)
-            gatherer.push_symi(name)
+            gatherer.push_symi(name, get_file_pos_str(string, match.start()))
         elif token_type == TOKEN_BEGIN_MODSIG:
             required_end_sig = TOKEN_END_MODSIG
             gatherer.set_module(name, "modsig")
@@ -251,7 +283,7 @@ def harvest_sig(string, name, gatherer):
         elif token_type == required_end_sig:
             required_end_sig = None
         else:
-            gatherer.print_file_message(f"Unexpected token type: {token_type}")
+            print_unexpected_token(match)
 
     if required_end_sig:
         gatherer.print_file_message("\\end{gviewsig} or \\end{modsig} missing")
@@ -260,6 +292,8 @@ def harvest_sig(string, name, gatherer):
 
 def harvest(string, name, lang, gatherer):
     """ harvests the data from file content """
+    print_unexpected_token = lambda match : gatherer.print_file_message(
+            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'")
 
     if name == "all":
         gatherer.print_file_message("Skipping file")
@@ -275,7 +309,7 @@ def harvest(string, name, lang, gatherer):
     for (match, token_type) in tokens:
         if token_type == TOKEN_DEF:
             if required_end_module == None:
-                gatherer.print_file_message(f"Unexpected token type: {token_type}")
+                print_unexpected_token(match)
             params = get_params(match.group("params"))
 
             args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
@@ -284,10 +318,10 @@ def harvest(string, name, lang, gatherer):
             name = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)
 
-            gatherer.push_defi(name, val)
+            gatherer.push_defi(name, val, get_file_pos_str(string, match.start()))
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
-                gatherer.print_file_message(f"Unexpected token type: {token_type}")
+                print_unexpected_token(match)
             gatherer.push_trefi()
         elif token_type == TOKEN_BEGIN_MHMODNL:
             required_end_module = TOKEN_END_MHMODNL
@@ -306,7 +340,7 @@ def harvest(string, name, lang, gatherer):
         elif token_type == required_end_module:
             required_end_module = None
         else:
-            gatherer.print_file_message(f"Unexpected token type: {token_type}")
+            print_unexpected_token(match)
 
     if required_end_module:
         gatherer.print_file_message("\\end{gviewnl} or \\end{mhmodnl} missing")
