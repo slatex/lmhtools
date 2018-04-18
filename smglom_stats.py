@@ -34,10 +34,15 @@ def get_params(param_str):
 
 
 class StatsGatherer(object):
+    """ The stats gatherer gathers all the data and provides some cross-file functionality,
+    like checking stuff found in a file against the stuff found in a signature file.
+    This design is not ideal and should be reworked. """
     def __init__(self):
         self.defis = []
         self.trefis = []
-        self.modcounts = {"mhmodnl" : {}, "gviewnl" : {}}
+        self.symis = []
+        self.sigfiles = { }
+        self.modcounts = {"mhmodnl" : {}, "gviewnl" : {}, "modsig" : {}, "gviewsig" : {}}
 
         self.mod_name = None
         self.mod_type = None
@@ -45,17 +50,27 @@ class StatsGatherer(object):
         self.lang = None
 
         self.file = None
+        self.sigfile = None
     
     def set_module(self, name, type_):
         self.mod_name = name
         self.mod_type = type_
+
+        if type_ in ["modsig", "gviewsig"]:
+            if name in self.sigfiles[self.repo]:
+                self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}'")
+            else:
+                self.sigfiles[self.repo][name] = type_
+
         self.modcounts[self.mod_type][self.repo] += 1
 
     def set_repo(self, name):
         self.repo = name
         if self.repo not in self.modcounts["mhmodnl"]:
-            self.modcounts["mhmodnl"][self.repo] = 0
-            self.modcounts["gviewnl"][self.repo] = 0
+            for type_ in ["mhmodnl", "modsig", "gviewnl", "gviewsig"]:
+                self.modcounts[type_][self.repo] = 0
+        if self.repo not in self.sigfiles:
+            self.sigfiles[self.repo] = {}
 
     def set_lang(self, lang):
         self.lang = lang
@@ -79,6 +94,17 @@ class StatsGatherer(object):
             self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'")
         self.defis.append(entry)
 
+    def push_symi(self, name):
+        assert self.mod_type == "modsig"
+        entry = {
+                "mod_name" : self.mod_name,
+                "repo" : self.repo,
+                "name" : name
+            }
+        if entry in self.symis:
+            self.print_file_message(f"Note: Symbol '{name}' was already introduced")
+        self.symis.append(entry)
+
     def push_trefi(self):
         self.trefis.append(
             {
@@ -95,6 +121,11 @@ TOKEN_DEF            = 2
 TOKEN_BEGIN_GVIEWNL  = 3
 TOKEN_END_GVIEWNL    = 4
 TOKEN_TREF           = 5
+TOKEN_BEGIN_MODSIG   = 6
+TOKEN_END_MODSIG     = 7
+TOKEN_SYM            = 8
+TOKEN_BEGIN_GVIEWSIG = 9
+TOKEN_END_GVIEWSIG   = 10
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -131,7 +162,6 @@ re_end_gviewnl = re.compile(
         r"\\end\s*\{gviewnl\}"
         ) 
 
-# the tref* regex NEEDS CLARIFICATION! (mtref* etc?)
 re_tref = re.compile(
         r"\\(?:mt|t|Mt|T)ref(?:i|ii|iii|iv)\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
@@ -141,14 +171,91 @@ re_tref = re.compile(
         r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
         )
 
+re_begin_modsig = re.compile(
+        r"\\begin\s*"
+        r"\{modsig\}\s*"
+        r"(?:\[[^\]]*\])?\s*"                     # optional parameters
+        r"\{(?P<name>[\w-]+)\}"                   # name
+        )
+
+re_end_modsig = re.compile(
+        r"\\end\s*\{modsig\}"
+        )
+
+re_sym = re.compile(
+        r"\\sym(?:i|ii|iii|iv)\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
+        r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
+        r"(?:\s*\{(?P<arg2>" + re_arg + r")\})?"   # arg2
+        r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
+        )
+
+re_begin_gviewsig = re.compile(
+        r"\\begin\s*"
+        r"\{gviewsig\}\s*"
+        r"(?:\[[^\]]*\])?\s*"                     # optional parameters
+        r"\{(?P<name>[\w-]+)\}"                   # name
+        )
+
+re_end_gviewsig = re.compile(
+        r"\\end\s*\{gviewsig\}"
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
         (re_def, TOKEN_DEF),
         (re_begin_gviewnl, TOKEN_BEGIN_GVIEWNL),
         (re_end_gviewnl, TOKEN_END_GVIEWNL),
-        (re_tref, TOKEN_TREF)
+        (re_tref, TOKEN_TREF),
+        (re_begin_modsig, TOKEN_BEGIN_MODSIG),
+        (re_end_modsig, TOKEN_END_MODSIG),
+        (re_sym, TOKEN_SYM),
+        (re_begin_gviewsig, TOKEN_BEGIN_GVIEWSIG),
+        (re_end_gviewsig, TOKEN_END_GVIEWSIG),
         ]
+
+def harvest_sig(string, name, gatherer):
+    """ harvests the data from signature file content """
+    if name == "all":
+        gatherer.print_file_message("Skipping file")
+        return
+    
+    # Check module type
+    tokens = parse(string, regexes)
+    if len(tokens) == 0:
+        raise Exception("No matches - probably an invalid or empty file")
+
+    required_end_sig = None
+
+    for (match, token_type) in tokens:
+        if token_type == TOKEN_SYM:
+            if required_end_sig == None:
+                gatherer.print_file_message(f"Unexpected token type: {token_type}")
+            args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
+            args = [arg for arg in args if arg != None]
+
+            name = "-".join(args)
+            gatherer.push_symi(name)
+        elif token_type == TOKEN_BEGIN_MODSIG:
+            required_end_sig = TOKEN_END_MODSIG
+            gatherer.set_module(name, "modsig")
+            if match.group("name") != name:
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+        elif token_type == TOKEN_BEGIN_GVIEWSIG:
+            required_end_sig = TOKEN_END_GVIEWSIG
+            gatherer.set_module(name, "gviewsig")
+            if match.group("name") != name:
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+        elif token_type == required_end_sig:
+            required_end_sig = None
+        else:
+            gatherer.print_file_message(f"Unexpected token type: {token_type}")
+
+    if required_end_sig:
+        gatherer.print_file_message("\\end{gviewsig} or \\end{modsig} missing")
+
 
 
 def harvest(string, name, lang, gatherer):
@@ -204,8 +311,20 @@ def harvest(string, name, lang, gatherer):
     if required_end_module:
         gatherer.print_file_message("\\end{gviewnl} or \\end{mhmodnl} missing")
 
+def preprocess_string(string):
+    """ removes comment lines """
+    return re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
 
 def gather_stats_for_mod(source_directory, name, gatherer):
+    # handle signature file
+    path = os.path.join(source_directory, f"{name}.tex")
+    gatherer.set_file(path)
+    with open(path, "r") as in_file:
+        try:
+            harvest_sig(preprocess_string(in_file.read()), name, gatherer)
+        except Exception as ex:
+            gatherer.print_file_message(f"Error while processing file: '{str(ex)}'")
+
     # determine languages
     regex = re.compile(name + r"\.(?P<lang>[a-zA-Z]+)\.tex")
     langs = []
@@ -221,7 +340,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
         gatherer.set_lang(lang)
         with open(path, "r") as in_file:
             try:
-                harvest(in_file.read(), name, lang, gatherer)
+                harvest(preprocess_string(in_file.read()), name, lang, gatherer)
             except Exception as ex:
                 gatherer.print_file_message(f"Error while processing file: '{str(ex)}'")
                 continue
