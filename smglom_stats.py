@@ -11,6 +11,9 @@ import sys
 import os
 
 
+VERBOSITY = 2  # should be in [0,1,2,3], where 3 is highest verbosity
+
+
 def parse(string, regexes):
     """
     Assumes that regexes is a list of pairs (regex, token_type).
@@ -81,7 +84,7 @@ class StatsGatherer(object):
 
         if type_ in ["modsig", "gviewsig"]:
             if name in self.sigfiles[self.repo]:
-                self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}'")
+                self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}'", 1)
             else:
                 self.sigfiles[self.repo][name] = {
                         "type" : type_,
@@ -104,8 +107,9 @@ class StatsGatherer(object):
     def set_file(self, path):
         self.file = path
 
-    def print_file_message(self, message):
-        print(f"{self.file}: {message}")
+    def print_file_message(self, message, minverbosity):
+        if VERBOSITY >= minverbosity:
+            print(f"{self.file}: {message}")
 
     def push_defi(self, name, string, offset_str):
         assert self.mod_type == "mhmodnl"
@@ -119,7 +123,7 @@ class StatsGatherer(object):
                 "path" : self.file
             }
         if entry in self.defis:
-            self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'")
+            self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'", 2)
         self.defis.append(entry)
 
     def push_symi(self, name, offset_str):
@@ -132,7 +136,7 @@ class StatsGatherer(object):
                 "path" : self.file
             }
         if entry in self.symis:
-            self.print_file_message(f"Note: Symbol '{name}' was already introduced")
+            self.print_file_message(f"Note: Symbol '{name}' was already introduced", 2)
         self.symis.append(entry)
 
     def push_trefi(self):
@@ -249,9 +253,9 @@ regexes = [
 def harvest_sig(string, name, gatherer):
     """ harvests the data from signature file content """
     print_unexpected_token = lambda match : gatherer.print_file_message(
-            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'")
+            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
     if name == "all":
-        gatherer.print_file_message("Skipping file")
+        gatherer.print_file_message("Skipping file", 3)
         return
     
     # Check module type
@@ -274,29 +278,29 @@ def harvest_sig(string, name, gatherer):
             required_end_sig = TOKEN_END_MODSIG
             gatherer.set_module(name, "modsig")
             if match.group("name") != name:
-                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name", 2)
         elif token_type == TOKEN_BEGIN_GVIEWSIG:
             required_end_sig = TOKEN_END_GVIEWSIG
             gatherer.set_module(name, "gviewsig")
             if match.group("name") != name:
-                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name", 2)
         elif token_type == required_end_sig:
             required_end_sig = None
         else:
             print_unexpected_token(match)
 
     if required_end_sig:
-        gatherer.print_file_message("\\end{gviewsig} or \\end{modsig} missing")
+        gatherer.print_file_message("\\end{gviewsig} or \\end{modsig} missing", 1)
 
 
 
 def harvest(string, name, lang, gatherer):
     """ harvests the data from file content """
     print_unexpected_token = lambda match : gatherer.print_file_message(
-            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'")
+            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
 
     if name == "all":
-        gatherer.print_file_message("Skipping file")
+        gatherer.print_file_message("Skipping file", 3)
         return
     
     # Check module type
@@ -327,23 +331,23 @@ def harvest(string, name, lang, gatherer):
             required_end_module = TOKEN_END_MHMODNL
             gatherer.set_module(name, "mhmodnl")
             if match.group("name") != name:
-                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name", 2)
             if match.group("lang") != lang:
-                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name")
+                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name", 2)
         elif token_type == TOKEN_BEGIN_GVIEWNL:
             required_end_module = TOKEN_END_GVIEWNL
             gatherer.set_module(name, "gviewnl")
             if match.group("name") != name:
-                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name")
+                gatherer.print_file_message(f"Name '{match.group('name')}' does not match file name", 2)
             if match.group("lang") != lang:
-                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name")
+                gatherer.print_file_message(f"Language '{match.group('lang')}' does not match file name", 2)
         elif token_type == required_end_module:
             required_end_module = None
         else:
             print_unexpected_token(match)
 
     if required_end_module:
-        gatherer.print_file_message("\\end{gviewnl} or \\end{mhmodnl} missing")
+        gatherer.print_file_message("\\end{gviewnl} or \\end{mhmodnl} missing", 1)
 
 def preprocess_string(string):
     """ removes comment lines """
@@ -362,7 +366,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
         try:
             harvest_sig(preprocess_string(in_file.read()), name, gatherer)
         except Exception as ex:
-            gatherer.print_file_message(f"Error while processing file: '{str(ex)}'")
+            gatherer.print_file_message(f"Error while processing file: '{str(ex)}'", 1)
 
     # determine languages
     regex = re.compile(name + r"\.(?P<lang>[a-zA-Z]+)\.tex")
@@ -381,7 +385,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
             try:
                 harvest(preprocess_string(in_file.read()), name, lang, gatherer)
             except Exception as ex:
-                gatherer.print_file_message(f"Error while processing file: '{str(ex)}'")
+                gatherer.print_file_message(f"Error while processing file: '{str(ex)}'", 1)
                 continue
 
 def gather_stats_for_repo(repo_directory, gatherer):
@@ -397,16 +401,22 @@ def gather_stats_for_all_repos(directory):
     for repo in os.listdir(directory):
         try:
             if repo == "meta-inf":
-                print("Skipping meta-inf")
+                if VERBOSITY >= 3:
+                    print("Skipping meta-inf")
                 continue
             gatherer.set_repo(repo)
             gather_stats_for_repo(os.path.join(directory, repo), gatherer)
         except Exception as ex:
-            print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
-            print(ex)
+            if VERBOSITY >= 1:
+                print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
+                print(ex)
             continue
     return gatherer
 
+
+def check_stats(gatherer):
+    """ checks for inconsistencies in data and prints warnings accordingly """
+    pass
 
 
 def PRINT_STATS(gatherer):
@@ -480,8 +490,18 @@ def PRINT_STATS(gatherer):
 
 
 
-if len(sys.argv) != 2:
-    print("Usage:   smglom_stats.py {DIRECTORY}")
-    print("Example: smglom_stats.py ~/git/gl_mathhub_info/smglom")
+if len(sys.argv) != 2 and (len(sys.argv) != 3 or sys.argv[1] not in ["-v0", "-v1", "-v2", "-v3"]):
+    print("Usage:   smglom_stats.py [VERBOSITY] {DIRECTORY}")
+    print("Example: smglom_stats.py -v3 ~/git/gl_mathhub_info/smglom")
+    print("The verbosity can be -v0, -v1, -v2, and -v3, where -v3 is the highest")
 else:
-    PRINT_STATS(gather_stats_for_all_repos(sys.argv[1]))
+    if len(sys.argv) == 3:
+        VERBOSITY = int(sys.argv[1][-1])
+    if VERBOSITY >= 1:
+        print("GATHERING DATA\n")
+    stats = gather_stats_for_all_repos(sys.argv[-1])
+    if VERBOSITY >= 1:
+        print("\nCHECKING FOR INCONSISTENCIES\n")
+    check_stats(stats)
+    print()
+    PRINT_STATS(stats)
