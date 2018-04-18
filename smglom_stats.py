@@ -347,7 +347,12 @@ def harvest(string, name, lang, gatherer):
 
 def preprocess_string(string):
     """ removes comment lines """
-    return re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
+    s = re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
+    while s != string:
+        string = s
+        s = re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
+    return string
+
 
 def gather_stats_for_mod(source_directory, name, gatherer):
     # handle signature file
