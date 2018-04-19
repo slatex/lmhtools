@@ -11,8 +11,25 @@ import sys
 import os
 
 
-VERBOSITY = 2  # should be in [0,1,2,3], where 3 is highest verbosity
+VERBOSITY = 2  # should be in [0,1,2,3, 4], where , 4 is highest verbosity
 
+
+def partition(a, equiv):
+    """ From stackoverflow: partitions into equivalence classes """
+    partitions = [] # Found partitions
+    for e in a: # Loop over each element
+        found = False # Note it is not yet part of a know partition
+        for p in partitions:
+            if equiv(e, p[0]): # Found a partition for it!
+                p.append(e)
+                found = True
+                break
+        if not found: # Make a new partition for it.
+            partitions.append([e])
+    return partitions
+
+def unique_list(l):
+    return list(set(l))
 
 def parse(string, regexes):
     """
@@ -68,6 +85,7 @@ class StatsGatherer(object):
         self.trefis = []
         self.symis = []
         self.sigfiles = { }
+        self.langfiles = { }
         self.modcounts = {"mhmodnl" : {}, "gviewnl" : {}, "modsig" : {}, "gviewsig" : {}}
 
         self.mod_name = None
@@ -90,6 +108,16 @@ class StatsGatherer(object):
                         "type" : type_,
                         "path" : self.file,
                         }
+        else:
+            if name+"."+self.lang in self.langfiles[self.repo]:
+                self.print_file_message(f"There is already a file with name '{name}' with language '{lang}' in '{self.repo}'", 1)
+            else:
+                self.langfiles[self.repo][name + "." + self.lang] = {
+                        "type" : type_,
+                        "path" : self.file,
+                        "name" : name,
+                        "lang" : self.lang,
+                        }
 
         self.modcounts[self.mod_type][self.repo] += 1
 
@@ -100,6 +128,7 @@ class StatsGatherer(object):
                 self.modcounts[type_][self.repo] = 0
         if self.repo not in self.sigfiles:
             self.sigfiles[self.repo] = {}
+            self.langfiles[self.repo] = {}
 
     def set_lang(self, lang):
         self.lang = lang
@@ -122,21 +151,18 @@ class StatsGatherer(object):
                 "offset" : offset_str,
                 "path" : self.file
             }
-        if entry in self.defis:
-            self.print_file_message(f"Note: Verbalization '{string}' was already introduced for symbol '{name}'", 2)
         self.defis.append(entry)
 
-    def push_symi(self, name, offset_str):
+    def push_symi(self, name, offset_str, type_):
         assert self.mod_type == "modsig"
         entry = {
                 "mod_name" : self.mod_name,
                 "repo" : self.repo,
                 "name" : name,
                 "offset" : offset_str,
-                "path" : self.file
+                "path" : self.file,
+                "type" : type_
             }
-        if entry in self.symis:
-            self.print_file_message(f"Note: Symbol '{name}' was already introduced", 2)
         self.symis.append(entry)
 
     def push_trefi(self):
@@ -160,6 +186,7 @@ TOKEN_END_MODSIG     = 7
 TOKEN_SYM            = 8
 TOKEN_BEGIN_GVIEWSIG = 9
 TOKEN_END_GVIEWSIG   = 10
+TOKEN_SYMDEF         = 11
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -217,7 +244,7 @@ re_end_modsig = re.compile(
         )
 
 re_sym = re.compile(
-        r"\\sym(?:i|ii|iii|iv)\s*"
+        r"\\sym(?:i|ii|iii|iv)\*?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -236,6 +263,12 @@ re_end_gviewsig = re.compile(
         r"\\end\s*\{gviewsig\}"
         )
 
+re_symdef = re.compile(
+        r"\\symdef\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -248,6 +281,7 @@ regexes = [
         (re_sym, TOKEN_SYM),
         (re_begin_gviewsig, TOKEN_BEGIN_GVIEWSIG),
         (re_end_gviewsig, TOKEN_END_GVIEWSIG),
+        (re_symdef, TOKEN_SYMDEF),
         ]
 
 def harvest_sig(string, name, gatherer):
@@ -255,7 +289,7 @@ def harvest_sig(string, name, gatherer):
     print_unexpected_token = lambda match : gatherer.print_file_message(
             f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
     if name == "all":
-        gatherer.print_file_message("Skipping file", 3)
+        gatherer.print_file_message("Skipping file", 4)
         return
     
     # Check module type
@@ -273,7 +307,14 @@ def harvest_sig(string, name, gatherer):
             args = [arg for arg in args if arg != None]
 
             name = "-".join(args)
-            gatherer.push_symi(name, get_file_pos_str(string, match.start()))
+            gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi")
+        elif token_type == TOKEN_SYMDEF:
+            if required_end_sig == None:
+                print_unexpected_token(match)
+            params = get_params(match.group("params"))
+            arg = match.group("arg0")
+            name = params["name"] if "name" in params else arg
+            gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef")
         elif token_type == TOKEN_BEGIN_MODSIG:
             required_end_sig = TOKEN_END_MODSIG
             gatherer.set_module(name, "modsig")
@@ -300,7 +341,7 @@ def harvest(string, name, lang, gatherer):
             f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
 
     if name == "all":
-        gatherer.print_file_message("Skipping file", 3)
+        gatherer.print_file_message("Skipping file", 4)
         return
     
     # Check module type
@@ -401,7 +442,7 @@ def gather_stats_for_all_repos(directory):
     for repo in os.listdir(directory):
         try:
             if repo == "meta-inf":
-                if VERBOSITY >= 3:
+                if VERBOSITY >= 4:
                     print("Skipping meta-inf")
                 continue
             gatherer.set_repo(repo)
@@ -416,7 +457,83 @@ def gather_stats_for_all_repos(directory):
 
 def check_stats(gatherer):
     """ checks for inconsistencies in data and prints warnings accordingly """
-    pass
+
+    # Check that for every language file there is a corresponding signature file
+    for repo in gatherer.langfiles:
+        for k in gatherer.langfiles[repo]:
+            langfile = gatherer.langfiles[repo][k]
+            name = langfile["name"] 
+            if name not in gatherer.sigfiles[repo]:
+                if VERBOSITY >= 1:
+                    print(f"There is no signature file '{name}' for file {langfile['path']}")
+                continue
+            sigfile = gatherer.sigfiles[repo][name]
+            if {"mhmodnl" : "modsig", "gviewnl" : "gviewsig" }[langfile["type"]] != sigfile["type"]:
+                if VERBOSITY >= 1:
+                    print(f"File {langfile['path']} is {langfile['type']}, but signature file {sigfile['path']} is {sigfile['type']}")
+
+    # put symis and defis into dictionaries for efficiency
+    symis = {}
+    for symi in gatherer.symis:
+        name = symi["name"]
+        if name not in symis:
+            symis[name] = []
+        symis[name].append(symi)
+    defis = {}
+    for defi in gatherer.defis:
+        name = defi["name"]
+        if name not in defis:
+            defis[name] = []
+        defis[name].append(defi)
+
+    # check if there is a corresponding symi for every defi
+    if VERBOSITY >= 2:
+        for defi in gatherer.defis:
+            name = defi["name"]
+            if name not in symis or len([s for s in symis[name] if s["mod_name"] == defi["mod_name"] and s["repo"] == defi["repo"]]) == 0:
+                print(f"{defi['path']}: At {defi['offset']}: Symbol '{name}' not found in signature file")
+                print("    The following symbols where found in the signature file: " + repr(unique_list([symi["name"] for symi in gatherer.symis if symi["mod_name"] == defi["mod_name"] and symi["repo"] == defi["repo"]])))
+
+    # check if there is a verbalization introduced multiple times in a file
+    if VERBOSITY >= 2:
+        for name in defis:
+            partitions = partition(defis[name], lambda a, b : a["repo"] == b["repo"])
+            for part in partitions:
+                # partitioning in serveral steps for efficiency
+                subpart = partition(part, lambda a, b : a["path"] == b["path"])
+                for part2 in subpart:
+                    subsubpart = partition(part2, lambda a, b : a["string"] == b["string"] and a["name"] == b["name"])
+                    for part3 in subsubpart:
+                        if len(part3) == 1:
+                            continue
+                        print(f"{part3[0]['path']}: Verbalization '{part3[0]['string']}' for symbol '{part3[0]['name']}' introduced several times (at {', '.join([p['offset'] for p in part3])})")
+
+    # check if symi several times for same symbol
+    if VERBOSITY >= 2:
+        for name in symis:
+            partitions = partition([symi for symi in symis[name] if symi["type"] == "symi"], lambda a, b : a["repo"] == b["repo"] and a["mod_name"] == b["mod_name"])
+            for part in partitions:
+                if len(part) > 1:
+                    print(f"Symbol '{name}' was introduced several times:")
+                    for symi in part:
+                        print(f"    in {symi['path']} at {symi['offset']}")
+
+    # check for missing verbalizations
+    if VERBOSITY >= 3:
+        for name in symis:
+            partitions = partition([symi for symi in symis[name]], lambda a, b : a["repo"] == b["repo"] and a["mod_name"] == b["mod_name"])
+            for part in partitions:
+                symi = part[0]
+                if symi["repo"] not in gatherer.langfiles:
+                    continue
+                for langfile in gatherer.langfiles[symi["repo"]]:
+                    if langfile.split(".")[0] != symi["mod_name"]:
+                        continue
+                    path = gatherer.langfiles[symi["repo"]][langfile]["path"]
+                    if name not in defis or len([d for d in defis[name] if d["path"] == path]) == 0:
+                        print(f"{path}: No verbalization for '{name}'")
+
+
 
 
 def PRINT_STATS(gatherer):
@@ -490,10 +607,10 @@ def PRINT_STATS(gatherer):
 
 
 
-if len(sys.argv) != 2 and (len(sys.argv) != 3 or sys.argv[1] not in ["-v0", "-v1", "-v2", "-v3"]):
+if len(sys.argv) != 2 and (len(sys.argv) != 3 or sys.argv[1] not in ["-v0", "-v1", "-v2", "-v3", "-v4"]):
     print("Usage:   smglom_stats.py [VERBOSITY] {DIRECTORY}")
     print("Example: smglom_stats.py -v3 ~/git/gl_mathhub_info/smglom")
-    print("The verbosity can be -v0, -v1, -v2, and -v3, where -v3 is the highest")
+    print("The verbosity can be -v0, -v1, -v2, and -v3, -v4 where -v4 is the highest")
 else:
     if len(sys.argv) == 3:
         VERBOSITY = int(sys.argv[1][-1])
