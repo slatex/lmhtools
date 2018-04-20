@@ -102,7 +102,7 @@ class StatsGatherer(object):
 
         if type_ in ["modsig", "gviewsig"]:
             if name in self.sigfiles[self.repo]:
-                self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}'", 1)
+                self.print_file_message(f"There is already a signature file with name '{name}' in '{self.repo}' at {self.sigfiles[self.repo][name]['path']}", 1)
             else:
                 self.sigfiles[self.repo][name] = {
                         "type" : type_,
@@ -110,7 +110,7 @@ class StatsGatherer(object):
                         }
         else:
             if name+"."+self.lang in self.langfiles[self.repo]:
-                self.print_file_message(f"There is already a file with name '{name}' with language '{self.lang}' in '{self.repo}'", 1)
+                self.print_file_message(f"There is already a file with name '{name}' with language '{self.lang}' in '{self.repo}' at {self.langfiles[self.repo][name+'.'+self.lang]['path']}", 1)
             else:
                 self.langfiles[self.repo][name + "." + self.lang] = {
                         "type" : type_,
