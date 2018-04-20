@@ -288,7 +288,7 @@ def harvest_sig(string, name, gatherer):
     """ harvests the data from signature file content """
     print_unexpected_token = lambda match : gatherer.print_file_message(
             f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
-    if name == "all":
+    if name in ["all", "localpaths"]:
         gatherer.print_file_message("Skipping file", 4)
         return
     
@@ -340,7 +340,7 @@ def harvest(string, name, lang, gatherer):
     print_unexpected_token = lambda match : gatherer.print_file_message(
             f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
 
-    if name == "all":
+    if name == ["all", "localpaths"]:
         gatherer.print_file_message("Skipping file", 4)
         return
     
@@ -445,8 +445,11 @@ def gather_stats_for_all_repos(directory):
                 if VERBOSITY >= 4:
                     print("Skipping meta-inf")
                 continue
+            path = os.path.join(directory, repo)
+            if not os.path.isdir(path):
+                continue
             gatherer.set_repo(repo)
-            gather_stats_for_repo(os.path.join(directory, repo), gatherer)
+            gather_stats_for_repo(path, gatherer)
         except Exception as ex:
             if VERBOSITY >= 1:
                 print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
