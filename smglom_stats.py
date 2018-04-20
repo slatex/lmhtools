@@ -110,7 +110,7 @@ class StatsGatherer(object):
                         }
         else:
             if name+"."+self.lang in self.langfiles[self.repo]:
-                self.print_file_message(f"There is already a file with name '{name}' with language '{lang}' in '{self.repo}'", 1)
+                self.print_file_message(f"There is already a file with name '{name}' with language '{self.lang}' in '{self.repo}'", 1)
             else:
                 self.langfiles[self.repo][name + "." + self.lang] = {
                         "type" : type_,
@@ -295,7 +295,8 @@ def harvest_sig(string, name, gatherer):
     # Check module type
     tokens = parse(string, regexes)
     if len(tokens) == 0:
-        raise Exception("No matches - probably an invalid or empty file")
+        gatherer.print_file_message("No matches found in file", 2)
+        return
 
     required_end_sig = None
 
@@ -347,7 +348,8 @@ def harvest(string, name, lang, gatherer):
     # Check module type
     tokens = parse(string, regexes)
     if len(tokens) == 0:
-        raise Exception("No matches - probably an invalid or empty file")
+        gatherer.print_file_message("No matches found in file", 2)
+        return
 
     required_end_module = None
 
@@ -400,6 +402,12 @@ def preprocess_string(string):
 
 
 def gather_stats_for_mod(source_directory, name, gatherer):
+    import traceback
+    def exception_to_string(excp):
+        """ from stackoverflow """
+        stack = traceback.extract_stack()[:-3] + traceback.extract_tb(excp.__traceback__)  # add limit=??
+        pretty = traceback.format_list(stack)
+        return ''.join(pretty) + '\n  {} {}'.format(excp.__class__,excp)
     # handle signature file
     path = os.path.join(source_directory, f"{name}.tex")
     gatherer.set_file(path)
@@ -407,7 +415,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
         try:
             harvest_sig(preprocess_string(in_file.read()), name, gatherer)
         except Exception as ex:
-            gatherer.print_file_message(f"Error while processing file: '{str(ex)}'", 1)
+            gatherer.print_file_message(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 1)
 
     # determine languages
     regex = re.compile(name + r"\.(?P<lang>[a-zA-Z]+)\.tex")
@@ -426,7 +434,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
             try:
                 harvest(preprocess_string(in_file.read()), name, lang, gatherer)
             except Exception as ex:
-                gatherer.print_file_message(f"Error while processing file: '{str(ex)}'", 1)
+                gatherer.print_file_message(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 1)
                 continue
 
 def gather_stats_for_repo(repo_directory, gatherer):
