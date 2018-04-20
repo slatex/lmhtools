@@ -304,6 +304,7 @@ def harvest_sig(string, name, gatherer):
         if token_type == TOKEN_SYM:
             if required_end_sig == None:
                 print_unexpected_token(match)
+                continue
             args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
             args = [arg for arg in args if arg != None]
 
@@ -312,6 +313,7 @@ def harvest_sig(string, name, gatherer):
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 print_unexpected_token(match)
+                continue
             params = get_params(match.group("params"))
             arg = match.group("arg0")
             name = params["name"] if "name" in params else arg
@@ -357,6 +359,7 @@ def harvest(string, name, lang, gatherer):
         if token_type == TOKEN_DEF:
             if required_end_module == None:
                 print_unexpected_token(match)
+                continue
             params = get_params(match.group("params"))
 
             args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
@@ -369,6 +372,7 @@ def harvest(string, name, lang, gatherer):
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
                 print_unexpected_token(match)
+                continue
             gatherer.push_trefi()
         elif token_type == TOKEN_BEGIN_MHMODNL:
             required_end_module = TOKEN_END_MHMODNL
