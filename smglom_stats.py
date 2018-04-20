@@ -442,7 +442,7 @@ def gather_stats_for_mod(source_directory, name, gatherer):
                 continue
 
 def gather_stats_for_repo(repo_directory, gatherer):
-    regex = re.compile(r"(?P<name>[a-zA-Z0-9-]+)\.tex")
+    regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)\.tex$")
     full_path = os.path.join(repo_directory, "source")
     for file_name in os.listdir(full_path):
         m = regex.match(file_name)
