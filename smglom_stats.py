@@ -286,8 +286,8 @@ regexes = [
 
 def harvest_sig(string, name, gatherer):
     """ harvests the data from signature file content """
-    print_unexpected_token = lambda match : gatherer.print_file_message(
-            f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
+    print_unexpected_token = lambda message, match : gatherer.print_file_message(
+            f"{message} at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
     if name in ["all", "localpaths"]:
         gatherer.print_file_message("Skipping file", 4)
         return
@@ -303,7 +303,7 @@ def harvest_sig(string, name, gatherer):
     for (match, token_type) in tokens:
         if token_type == TOKEN_SYM:
             if required_end_sig == None:
-                print_unexpected_token(match)
+                print_unexpected_token("Require \\begin{modsig} or \\begin{gviewsig} before token", match)
                 continue
             args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
             args = [arg for arg in args if arg != None]
@@ -312,7 +312,7 @@ def harvest_sig(string, name, gatherer):
             gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi")
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
-                print_unexpected_token(match)
+                print_unexpected_token("Require \\begin{modsig} or \\begin{gviewsig} before token", match)
                 continue
             params = get_params(match.group("params"))
             arg = match.group("arg0")
@@ -331,7 +331,7 @@ def harvest_sig(string, name, gatherer):
         elif token_type == required_end_sig:
             required_end_sig = None
         else:
-            print_unexpected_token(match)
+            print_unexpected_token("Unexpected token", match)
 
     if required_end_sig:
         gatherer.print_file_message("\\end{gviewsig} or \\end{modsig} missing", 1)
@@ -340,7 +340,7 @@ def harvest_sig(string, name, gatherer):
 
 def harvest(string, name, lang, gatherer):
     """ harvests the data from file content """
-    print_unexpected_token = lambda match : gatherer.print_file_message(
+    print_unexpected_token = lambda message, match : gatherer.print_file_message(
             f"Unexpected token at {get_file_pos_str(string, match.start())}: '{match.group(0)}'", 1)
 
     if name == ["all", "localpaths"]:
@@ -357,8 +357,8 @@ def harvest(string, name, lang, gatherer):
 
     for (match, token_type) in tokens:
         if token_type == TOKEN_DEF:
-            if required_end_module == None:
-                print_unexpected_token(match)
+            if required_end_module == None or required_end_module == TOKEN_END_GVIEWNL:
+                print_unexpected_token("Require \\begin{mhmodnl} before token", match)
                 continue
             params = get_params(match.group("params"))
 
@@ -371,7 +371,7 @@ def harvest(string, name, lang, gatherer):
             gatherer.push_defi(name, val, get_file_pos_str(string, match.start()))
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
-                print_unexpected_token(match)
+                print_unexpected_token("Require \\begin{mhmodnl} or \\begin{gviewnl} before token", match)
                 continue
             gatherer.push_trefi()
         elif token_type == TOKEN_BEGIN_MHMODNL:
@@ -391,7 +391,7 @@ def harvest(string, name, lang, gatherer):
         elif token_type == required_end_module:
             required_end_module = None
         else:
-            print_unexpected_token(match)
+            print_unexpected_token("Unexpected token", match)
 
     if required_end_module:
         gatherer.print_file_message("\\end{gviewnl} or \\end{mhmodnl} missing", 1)
