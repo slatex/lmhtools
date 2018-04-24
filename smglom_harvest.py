@@ -282,7 +282,7 @@ regexes = [
 def harvest_sig(string, name, ctx):
     """ harvests the data from signature file content """
     if name in ["all", "localpaths"]:
-        ctx.message(f"Skipping file (name '{name}' in blacklist)", 4)
+        ctx.log(f"Skipping file (name '{name}' in blacklist)", 4)
         return
     
     # Check module type
@@ -349,7 +349,7 @@ def harvest_nl(string, name, lang, ctx):
     """ harvests the data from file content """
 
     if name == ["all", "localpaths"]:
-        ctx.message(f"Skipping file (name '{name}' in blacklist)", 4)
+        ctx.log(f"Skipping file (name '{name}' in blacklist)", 4)
         return
     
     # Check module type
@@ -479,7 +479,7 @@ if __name__ == "__main__":
     else:
         verbosity = 2
         if len(sys.argv) == 4:
-            verbosity = int(sys.argv[1][-1])
+            verbosity = int(sys.argv[2][-1])
 
         if verbosity >= 2:
             print("GATHERING DATA\n")
