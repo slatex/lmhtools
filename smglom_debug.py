@@ -100,9 +100,9 @@ def check_data(gatherer, verbosity):
         for symik in symi_part:
             symis = [s for s in symi_part[symik] if s["type"] == "symi"]
             if len(symis) > 1:
-                print("Symbol '{symis[0]['name']}' was introduced several times in a symi:")
+                print(f"Symbol '{symis[0]['name']}' was introduced several times in a symi:")
                 for symi in symis:
-                    print("    {symi['path']} at {symi['offset']}")
+                    print(f"    {symi['path']} at {symi['offset']}")
 
 
 if __name__ == "__main__":
