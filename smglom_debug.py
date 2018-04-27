@@ -91,7 +91,7 @@ def check_data(gatherer, verbosity):
             for verbalization in part:
                 vs = part[verbalization]
                 if len(vs) > 1:
-                    print("Verbalization '{verbalization}' provided multiple times:")
+                    print(f"Verbalization '{verbalization}' provided multiple times:")
                     for v in vs:
                         print(f"    {v['path']} at {v['offset']}")
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         if arg == "-mvx":
             mvx = True
         elif arg in ["-v1", "-v2", "-v3"]:
-            verbosity = int(sys.argv[1][-1])
+            verbosity = int(arg[-1])
         elif arg.startswith("-mv-"):
             mv_lang.append(arg[4:])
         else:
