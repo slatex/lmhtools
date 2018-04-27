@@ -1,10 +1,10 @@
 SMGLOM Scripts
 ===
 
-This folder contains three scripts for analyzing *smglom* based on the *.tex* in the repositories:
-    * `smglom_harvest.py` collects information about modules, symbols, verbalizations, ...
-    * `smglom_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
-    * `smglom_stats.py` prints statistics about *smglom*
+This folder contains three scripts for analyzing *smglom* based on the *.tex* files in the repositories:
+* `smglom_harvest.py` collects information about modules, symbols, verbalizations, ...
+* `smglom_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
+* `smglom_stats.py` prints statistics about *smglom*
 
 ### Requirements
 
@@ -18,11 +18,11 @@ It does not update (`pull`) the repositories automatically.
 
 This script contains the code for collecting data.
 The script can be run directly with one of the following commands:
-    * `defi`: Lists all the verbalizations found.
-    * `trefi`: Lists all the `trefi`s found.
-    * `symi`: Lists all the symbol declarations/definitions found.
-    * `sigfile`: Lists all the signature files found.
-    * `langfile`: Lists all the language files found.
+* `defi`: Lists all the verbalizations found.
+* `trefi`: Lists all the `trefi`s found.
+* `symi`: Lists all the symbol declarations/definitions found.
+* `sigfile`: Lists all the signature files found.
+* `langfile`: Lists all the language files found.
 
 For example, the following command (where `../..` is the folder containing all the repositories):
 
@@ -48,8 +48,8 @@ inconsistencies.
 Depending on the verbosity, more or fewer types of errors are displayed.
 
 Missing verbalizations can be displayed with extra command line options:
-    * `-mvx`: Show missing verbalizations in all language files.
-    * `-mv-...`: `...` should be a language like `en` or `de`.
+* `-mvx`: Show missing verbalizations in all language files.
+* `-mv-...`: `...` should be a language like `en` or `de`.
         The script then prints all missing verbalizations for the language,
         even if no language file for a module has been created yet.
 
