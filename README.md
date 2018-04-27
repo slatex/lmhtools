@@ -9,9 +9,10 @@ This folder contains three scripts for analyzing *smglom* based on the *.tex* fi
 ### Requirements
 
 The scripts require at least Python 3.6 and have only been run on Unix systems.
+No special libraries should be necessary.
 The scripts are run on a local folder that contains the required repositories
 from [https://gl.mathhub.info/smglom](https://gl.mathhub.info/smglom).
-It does not update (`pull`) the repositories automatically.
+Note that it does not update (`pull`) the repositories automatically.
 
 
 ### smglom_harvest.py
@@ -90,10 +91,11 @@ that are not declared in signature files.
 ### Developer notes
 
 The data collection code is in `smglom_harvest.py`.
-For simple scripts (like for the generation of other statistics),
-you might want to simply import it and then use only the collected data.
-To get you started, take a look at the following example script:
+For simple scripts (like to generate other statistcs)
+which do not require changes to the data collection,
+this code can be easily imported and used.
 
+Consider the following snippet to get you started:
 ```python
 import smglom_harvest as harvest
 
