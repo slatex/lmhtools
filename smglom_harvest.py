@@ -445,8 +445,8 @@ def gather_stats_for_all_repos(directory, ctx):
     for repo in os.listdir(directory):
         try:
             if repo == "meta-inf":
-                if ctx.verbosity >= 4:
-                    print("Skipping meta-inf")
+                # if ctx.verbosity >= 4:
+                #     print("Skipping meta-inf")
                 continue
             path = os.path.join(directory, repo)
             if not os.path.isdir(path):
@@ -466,14 +466,14 @@ if __name__ == "__main__":
         print("Example: smglom_harvest.py defi -v3 ~/git/gl_mathhub_info/smglom")
         print()
         print("COMMAND      What shall be printed. Can be one of defi, trefi, symi, sigfile, langfile.")
-        print("VERBOSITY    Can be -v0, -v1, -v2, and -v3, -v4 where -v4 is the highest")
+        print("VERBOSITY    Can be -v0, -v1, -v2, and -v3 where is the highest")
     if len(sys.argv) < 3 or len(sys.argv) > 4:
         print("Invalid number of arguments\n")
         print_usage()
     elif sys.argv[1] not in ["defi", "trefi", "symi", "sigfile", "langfile"]:
         print(f"Invalid command '{sys.argv[1]}'\n")
         print_usage()
-    elif len(sys.argv) == 4 and sys.argv[2] not in ["-v0", "-v1", "-v2", "-v3", "-v4"]:
+    elif len(sys.argv) == 4 and sys.argv[2] not in ["-v0", "-v1", "-v2", "-v3"]:
         print(f"Didn't expect argument '{sys.argv[2]}'")
         print_usage()
     else:

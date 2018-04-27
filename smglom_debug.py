@@ -104,30 +104,86 @@ def check_data(gatherer, verbosity):
                 for symi in symis:
                     print(f"    {symi['path']} at {symi['offset']}")
 
+def check_mvx(gatherer):
+    langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
+    symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
+    defi_part = partition(gatherer.defis, lambda e : (e["repo"], e["mod_name"], e["name"], e["lang"]))
+
+    for langfk in langf_part:
+        if (langfk[0], langfk[1]) not in symi_part:  # no symbols introduced
+            continue
+        required_symbols = [e["name"] for e in symi_part[(langfk[0], langfk[1])]]
+        missing_symbols = [s for s in required_symbols if (langfk[0], langfk[1], s, langfk[2]) not in defi_part]
+        langf = langf_part[langfk][0]
+        if len(missing_symbols) > 0:
+            print(f"{langf['path']}: Missing verbalizations for the following symbols: {', '.join(unique_list(missing_symbols))}")
+
+def check_mvlang(gatherer, lang):
+    sigf_part = partition(gatherer.sigfiles, lambda e : (e["repo"], e["mod_name"]))
+    langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
+    symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
+    defi_part = partition(gatherer.defis, lambda e : (e["repo"], e["mod_name"], e["name"], e["lang"]))
+
+    for (repo, modname) in symi_part:
+        if (repo, modname, lang) not in langf_part:
+            print(f"{sigf_part[(repo, modname)][0]['path']}: No mhmodnl for language '{lang}'")
+            continue
+        langf = langf_part[(repo, modname, lang)][0]
+        covered = []
+        for symi in symi_part[(repo, modname)]:
+            if symi["name"] in covered:
+                continue
+            if (repo, modname, symi["name"], lang) in defi_part:
+                continue
+            print(f"{symi['path']} at {symi['offset']}: No verbalization for symbol '{symi['name']}' in '{langf['path']}'")
+            covered.append(symi["name"])
+
 
 if __name__ == "__main__":
     def print_usage():
-        print("Usage:   smglom_debug.py [VERBOSITY] {DIRECTORY}")
-        print("Example: smglom_debug.py defi -v3 ~/git/gl_mathhub_info/smglom")
+        print("Usage:   smglom_debug.py [VERBOSITY] [OPTIONS]* {DIRECTORY}")
+        print("Example: smglom_debug.py -v3 -mv-en ~/git/gl_mathhub_info/smglom")
         print()
-        print("VERBOSITY    Can be -v1, -v2, and -v3, -v4 where -v4 is the highest")
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print("Invalid number of arguments\n")
+        print("VERBOSITY    Can be -v1, -v2, and -v3 where is the highest")
+        print("OPTIONS      Options are:")
+        print("                 -mv-...  Show all missing verbalizations for the language '...', where ... is e.g. en or de")
+        print("                 -mvx     Show verbalizations missing in existing mhmodnls")
+    if len(sys.argv) < 2:
+        print("Not enough arguments\n")
         print_usage()
-    elif len(sys.argv) == 3 and sys.argv[1] not in ["-v1", "-v2", "-v3", "-v4"]:
-        print(f"Didn't expect argument '{sys.argv[2]}'")
-        print_usage()
-    else:
-        verbosity = 3
-        if len(sys.argv) == 3:
+        sys.exit(1)
+
+    verbosity = 3
+    mv_lang = []
+    mvx = False
+    for arg in sys.argv[1:-1]:
+        if arg == "-mvx":
+            mvx = True
+        elif arg in ["-v1", "-v2", "-v3"]:
             verbosity = int(sys.argv[1][-1])
+        elif arg.startswith("-mv-"):
+            mv_lang.append(arg[4:])
+        else:
+            print(f"Unexpected argument '{arg}'\n")
+            print_usage()
+            sys.exit(1)
 
-        if verbosity >= 2:
-            print("GATHERING DATA\n")
-        ctx = harvest.HarvestContext(verbosity, harvest.DataGatherer())
-        harvest.gather_stats_for_all_repos(sys.argv[-1], ctx)
+    if verbosity >= 2:
+        print("GATHERING DATA\n")
+    ctx = harvest.HarvestContext(verbosity, harvest.DataGatherer())
+    harvest.gather_stats_for_all_repos(sys.argv[-1], ctx)
 
+    if verbosity >= 2:
+        print("\n\nCHECKING DATA\n")
+    check_data(ctx.gatherer, verbosity)
+
+    if mvx:
         if verbosity >= 2:
-            print("\n\nCHECKING DATA\n")
-        check_data(ctx.gatherer, verbosity)
+            print("\n\nLOOKING FOR MISSING VERBALIZATIONS IN MHMODNLs\n")
+        check_mvx(ctx.gatherer)
+
+    for lang in mv_lang:
+        if verbosity >= 2:
+            print("\n\nLOOKING FOR MISSING VERBALIZATIONS OF LANGUAGE '" + lang + "'\n")
+        check_mvlang(ctx.gatherer, lang)
 
