@@ -6,6 +6,10 @@ This folder contains three scripts for analyzing *smglom* based on the *.tex* fi
 * `smglom_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
 * `smglom_stats.py` prints statistics about *smglom*
 
+The scripts do not parse *TeX* 'properly'.
+Instead, they use regular expressions, which means that the parsing is very limited
+and error-prone.
+
 ### Requirements
 
 The scripts require at least Python 3.6 and have only been run on Unix systems.
@@ -111,3 +115,5 @@ print(gatherer.trefis)
 print(gatherer.sigfiles)
 print(gatherer.langfiles)
 ```
+
+For questions and bug reports, feel free to reach out to [Jan Frederik schaefer](https://kwarc.info/people/jfschaefer/).
