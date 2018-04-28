@@ -34,7 +34,8 @@ def print_stats(gatherer):
     defi_part = partition(gatherer.defis, lambda e : (e["repo"], e["lang"]))
     trefi_part = partition(gatherer.trefis, lambda e : e["repo"])
 
-    print(f"{'repo':20}{'modsig':9}{'gviewsig':9}{'trefis':9}{'symbols':9}"+"".join([f"{lang:9}" for lang in langs]))
+    print(f"{'repo':20}{'modules':>9}{'symbols':>9}{'trefis':>9}"+"".join([f"{lang:>9}" for lang in langs])+f"{'views':>9}")
+    print("-"*(20+9+9+9+9+9*len(langs)))
     for repo in repos:
         suffix = ""
         if repo not in symi_part:
@@ -47,10 +48,10 @@ def print_stats(gatherer):
             else:
                 verbs = len(set([(e["mod_name"], e["name"]) for e in defi_part[(repo, lang)]]))
             if symbols == 0:
-                suffix += f"{'n/a':6}   "
+                suffix += f"{'n/a':>9}"
             else:
                 s = "%.1f" % (100 * verbs/symbols)
-                suffix += f"{s+'%':6}   "
+                suffix += f"{s+'%':>9}"
         modsigs = 0
         gviewsigs = 0
         if repo in sigf_part:
@@ -60,11 +61,11 @@ def print_stats(gatherer):
         if repo in trefi_part:
             trefis = len(trefi_part[repo])
         print(f"{repo:20}" +
-              f"{modsigs:6}   " +
-              f"{gviewsigs:6}   " +
-              f"{trefis:6}   " +
-              f"{symbols:6}   " +
-              suffix)
+              f"{modsigs:9}" +
+              f"{symbols:9}" +
+              f"{trefis:9}" +
+              suffix +
+              f"{gviewsigs:9}")
     
     print("-"*(20+9+9+9+9+9*len(langs)))
     suffix = ""
@@ -72,16 +73,16 @@ def print_stats(gatherer):
     for lang in langs:
         verbs = len(set([(e["mod_name"], e["name"]) for e in gatherer.defis if e["lang"] == lang]))
         if symbols == 0:
-            suffix += f"{'n/a':6}   "
+            suffix += f"{'n/a':>9}"
         else:
             s = "%.1f" % (100 * verbs/symbols)
-            suffix += f"{s+'%':6}   "
+            suffix += f"{s+'%':>9}"
     print(f"{'TOTAL':20}" +
-          f"{len([e for e in gatherer.sigfiles if e['type']=='modsig']):6}   " +
-          f"{len([e for e in gatherer.sigfiles if e['type']=='gviewsig']):6}   " +
-          f"{len(gatherer.trefis):6}   " +
-          f"{symbols:6}   " +
-          suffix)
+          f"{len([e for e in gatherer.sigfiles if e['type']=='modsig']):9}" +
+          f"{symbols:9}" +
+          f"{len(gatherer.trefis):9}" +
+          suffix +
+          f"{len([e for e in gatherer.sigfiles if e['type']=='gviewsig']):9}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2 and (len(sys.argv) != 3 or sys.argv[1] not in ["-v0", "-v1", "-v2", "-v3", "-v4"]):
