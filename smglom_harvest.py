@@ -198,7 +198,7 @@ re_end_mhmodnl = re.compile(
 re_arg = r"(?:(?:[^\}\$]+)|(?:\$[^\$]+\$))+"
 
 re_def = re.compile(
-        r"\\[Dd]ef(?:i|ii|iii|iv)\s*"
+        r"\\(?:d|D)ef(?:i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -219,7 +219,7 @@ re_end_gviewnl = re.compile(
         ) 
 
 re_tref = re.compile(
-        r"\\(?:mt|t|Mt|T)ref(?:i|ii|iii|iv)\s*"
+        r"\\(?:mt|t|Mt|T)ref(?:i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
