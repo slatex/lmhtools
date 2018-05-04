@@ -145,7 +145,7 @@ class DataGatherer(object):
             }
         self.defis.append(entry)
 
-    def push_symi(self, name, offset_str, type_, ctx):
+    def push_symi(self, name, offset_str, type_, noverb, ctx):
         assert ctx.mod_type == "modsig"
         assert type_ in ["symi", "symdef"]
         entry = {
@@ -155,6 +155,7 @@ class DataGatherer(object):
                 "offset" : offset_str,
                 "path" : ctx.file,
                 "type" : type_,
+                "noverb" : noverb,
             }
         self.symis.append(entry)
 
@@ -198,12 +199,13 @@ re_end_mhmodnl = re.compile(
 re_arg = r"(?:(?:[^\}\$]+)|(?:\$[^\$]+\$))+"
 
 re_def = re.compile(
-        r"\\(?:d|D)ef(?:i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>d|D|ad)ef(?:i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
         r"(?:\s*\{(?P<arg2>" + re_arg + r")\})?"   # arg2
         r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
+        r"(?:\s*\{(?P<arg4>" + re_arg + r")\})?"   # arg4 (for adefi*s)
         )
 
 re_begin_gviewnl = re.compile(
@@ -219,7 +221,7 @@ re_end_gviewnl = re.compile(
         ) 
 
 re_tref = re.compile(
-        r"\\(?:mt|t|Mt|T)ref(?:i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>at|mt|t|Mt|T)ref(?:i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -304,16 +306,18 @@ def harvest_sig(string, name, ctx):
             args = [arg for arg in args if arg != None]
 
             name = "-".join(args)
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", ctx)
+            paramsstr = match.group("params")
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", paramsstr and "noverb" in paramsstr, ctx)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
-            params = get_params(match.group("params"))
+            paramsstr = match.group("params")
+            params = get_params(paramsstr)
             arg = match.group("arg0")
             name = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", paramsstr and "noverb" in paramsstr, ctx)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -369,8 +373,10 @@ def harvest_nl(string, name, lang, ctx):
                 continue
             params = get_params(match.group("params"))
 
-            args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
+            args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3", "arg4"]]
             args = [arg for arg in args if arg != None]
+            if match.group("start") == "ad":    # skip first argument for adefi*
+                args = args[1:]
 
             name = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)

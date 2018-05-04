@@ -112,7 +112,7 @@ def check_mvx(gatherer):
     for langfk in langf_part:
         if (langfk[0], langfk[1]) not in symi_part:  # no symbols introduced
             continue
-        required_symbols = [e["name"] for e in symi_part[(langfk[0], langfk[1])]]
+        required_symbols = [e["name"] for e in symi_part[(langfk[0], langfk[1])] if not e["noverb"]]
         missing_symbols = [s for s in required_symbols if (langfk[0], langfk[1], s, langfk[2]) not in defi_part]
         langf = langf_part[langfk][0]
         if len(missing_symbols) > 0:
