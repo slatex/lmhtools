@@ -31,12 +31,14 @@ def check_data(gatherer, verbosity):
     """ Checks data for errors (but not for things like missing verbalizations) """
 
     # partition data for efficient look-up
+    repo_part = partition(gatherer.repos, lambda e : e["repo"])
     sigf_part = partition(gatherer.sigfiles, lambda e : (e["repo"], e["mod_name"]))
     langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
     symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"], e["name"]))
     defi_part = partition(gatherer.defis, lambda e : (e["repo"], e["mod_name"], e["name"], e["lang"]))
 
     symi_part2 = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
+    sigf_part2 = partition(gatherer.sigfiles, lambda e : e["repo"])
 
 
     # Check that for every language file there is a corresponding signature file
@@ -110,6 +112,31 @@ def check_data(gatherer, verbosity):
                 for symi in symis:
                     print(f"    {symi['path']} at {symi['offset']}")
 
+    # Check for missing namespaces
+    if verbosity >= 2:
+        for repo in sigf_part2:
+            if repo_part[repo][0]["namespace"]:
+                continue
+            for sigf in sigf_part2[repo]:
+                if sigf["type"] == "modsig" and sigf["align"] and sigf["align"] != "noalign":
+                    print(f"{sigf['path']}: Has alignment, but no namespace is set for the repository")
+                    break
+
+    # Check for missing module alignments
+    if verbosity >= 2:
+        for sigfk in sigf_part:
+            if sigf_part[sigfk][0]["type"] != "modsig" or (sigf_part[sigfk][0]["align"] and sigf_part[sigfk][0]["align"] != "noalign"):
+                continue # module is aligned/doesn't need to be aligned
+            
+            if sigfk not in symi_part2:
+                continue # no symbols - module alignment not necessary
+
+            for symi in symi_part2[sigfk]:
+                if symi["align"] and symi["align"] != "noalign":
+                    print(f"{symi['path']} at {symi['offset']}: Found alignment, but module is not aligned")
+                    break
+
+
 def check_mvx(gatherer):
     langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
     symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
@@ -146,6 +173,24 @@ def check_mvlang(gatherer, lang):
             print(f"{symi['path']} at {symi['offset']}: No verbalization for symbol '{symi['name']}' in '{langf['path']}'")
             covered.append(symi["name"])
 
+def check_ma(gatherer):
+    sigf_part = partition(gatherer.sigfiles, lambda e : e["repo"])
+    symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
+    for repo in gatherer.repos:
+        if not repo["namespace"]:
+            print(f"Repository '{repo['repo']}' has no namespace set in preamble")
+            continue
+        for sigf in sigf_part[repo['repo']]:
+            if sigf["type"] == "glviewsig":
+                continue
+            if not sigf["align"]:
+                print(f"{sigf['path']}: No module alignment provided")
+                continue
+            for symi in symi_part[(repo["repo"], sigf["mod_name"])]:
+                if not symi["align"]:
+                    print(f"{symi['path']} at {symi['offset']}: No alignment provided for symbol {symi['name']}")
+            
+        
 
 if __name__ == "__main__":
     def print_usage():
@@ -156,6 +201,7 @@ if __name__ == "__main__":
         print("OPTIONS      Options are:")
         print("                 -mv-...  Show all missing verbalizations for the language '...', where ... is e.g. en or de")
         print("                 -mvx     Show verbalizations missing in existing mhmodnls")
+        print("                 -ma      Show missing aligments")
     if len(sys.argv) < 2:
         print("Not enough arguments\n")
         print_usage()
@@ -164,9 +210,12 @@ if __name__ == "__main__":
     verbosity = 3
     mv_lang = []
     mvx = False
+    ma = False
     for arg in sys.argv[1:-1]:
         if arg == "-mvx":
             mvx = True
+        elif arg == "-ma":
+            ma = True
         elif arg in ["-v1", "-v2", "-v3"]:
             verbosity = int(arg[-1])
         elif arg.startswith("-mv-"):
@@ -194,4 +243,9 @@ if __name__ == "__main__":
         if verbosity >= 2:
             print("\n\nLOOKING FOR MISSING VERBALIZATIONS OF LANGUAGE '" + lang + "'\n")
         check_mvlang(ctx.gatherer, lang)
+
+    if ma:
+        if verbosity >= 2:
+            print("\n\nLOOKING FOR MISSING ALIGNMENTS\n")
+        check_ma(ctx.gatherer)
 

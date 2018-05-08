@@ -53,7 +53,8 @@ This script uses the code from `smglom_harvest.py` to gather data and then check
 inconsistencies.
 Depending on the verbosity, more or fewer types of errors are displayed.
 
-Missing verbalizations can be displayed with extra command line options:
+Other issues that are not really considered errors can be shown with extra command line options:
+* `-ma`: Show missing alignments.
 * `-mvx`: Show missing verbalizations in all language files.
 * `-mv-...`: `...` should be a language like `en` or `de`.
         The script then prints all missing verbalizations for the language,
@@ -111,6 +112,7 @@ gatherer = harvest.DataGatherer()
 harvest.gather_data_for_all_repos(PATH, harvest.HarvestContext(VERBOSITY, gatherer))
 
 print(gatherer.defis)       # list of dictionaries, each containing the data for one defi
+print(gatherer.repos)
 print(gatherer.symis)
 print(gatherer.trefis)
 print(gatherer.sigfiles)

@@ -125,12 +125,13 @@ class DataGatherer(object):
             "namespace" : namespace,
         })
 
-    def push_sigfile(self, ctx):
+    def push_sigfile(self, align, ctx):
         assert ctx.mod_type in ["modsig", "gviewsig"]
         self.sigfiles.append({
             "type" : ctx.mod_type,
             "path" : ctx.file,
             "repo" : ctx.repo,
+            "align" : align,
             "mod_name" : ctx.mod_name,
         })
 
@@ -157,7 +158,7 @@ class DataGatherer(object):
             }
         self.defis.append(entry)
 
-    def push_symi(self, name, offset_str, type_, noverb, ctx):
+    def push_symi(self, name, offset_str, type_, noverb, align, ctx):
         assert ctx.mod_type == "modsig"
         assert type_ in ["symi", "symdef"]
         entry = {
@@ -168,6 +169,7 @@ class DataGatherer(object):
                 "path" : ctx.file,
                 "type" : type_,
                 "noverb" : noverb,
+                "align" : align,
             }
         self.symis.append(entry)
 
@@ -244,7 +246,7 @@ re_tref = re.compile(
 re_begin_modsig = re.compile(
         r"\\begin\s*"
         r"\{modsig\}\s*"
-        r"(?:\[[^\]]*\])?\s*"                     # optional parameters
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"         # parameters
         r"\{(?P<name>[\w-]+)\}"                   # name
         )
 
@@ -311,6 +313,14 @@ def get_noverb(param_dict):
         return val[1:-1].split(",")
     return [val]
 
+def get_align(params):
+    if "align" in params:
+        return params["align"]
+    elif "noalign" in params:
+        return "noalign"
+    else:
+        return None
+
 def harvest_sig(string, name, ctx):
     """ harvests the data from signature file content """
     if name in ["all", "localpaths"]:
@@ -325,6 +335,7 @@ def harvest_sig(string, name, ctx):
     
     required_end_sig = None
     isacceptablefile = False
+    mod_align = None
 
     for (match, token_type) in tokens:
         if token_type == TOKEN_SYM:
@@ -337,7 +348,7 @@ def harvest_sig(string, name, ctx):
 
             name = "-".join(args)
             params = get_params(match.group("params"))
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params), ctx)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
@@ -346,7 +357,7 @@ def harvest_sig(string, name, ctx):
             params = get_params(match.group("params"))
             arg = match.group("arg0")
             name = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params), ctx)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -355,6 +366,8 @@ def harvest_sig(string, name, ctx):
                         2, get_file_pos_str(string, match.start()))
             ctx.mod_type = "modsig"
             ctx.mod_name = match.group("name")
+            params = get_params(match.group("params"))
+            mod_align = get_align(params)
         elif token_type == TOKEN_BEGIN_GVIEWSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_GVIEWSIG
@@ -374,7 +387,7 @@ def harvest_sig(string, name, ctx):
     if not isacceptablefile:
         ctx.log("File didn't have \\begin{modsig} or \\begin{gviewsig}", 1)
         return
-    ctx.gatherer.push_sigfile(ctx)
+    ctx.gatherer.push_sigfile(mod_align, ctx)
 
 
 
@@ -547,10 +560,10 @@ if __name__ == "__main__":
         elif command == "symi":
             for symi in ctx.gatherer.symis:
                 noverbtostr = lambda symi : repr(symi["noverb"]).replace(", ", ",")
-                print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']} noverb={noverbtostr(symi)}")
+                print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']} noverb={noverbtostr(symi)} align={symi['align']}")
         elif command == "sigfile":
             for sigf in ctx.gatherer.sigfiles:
-                print(f"{sigf['path']}: {sigf['mod_name']} {sigf['type']}")
+                print(f"{sigf['path']}: name={sigf['mod_name']} type={sigf['type']} align={repr(sigf['align'])}")
         elif command == "langfile":
             for langf in ctx.gatherer.langfiles:
                 print(f"{langf['path']}: {langf['mod_name']} {langf['type']} {langf['lang']}")
