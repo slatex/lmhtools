@@ -82,6 +82,12 @@ def check_data(gatherer, verbosity):
                         ", ".join(unique_list([e["name"] for e in symi_part2[k2]])))
                 else:
                     print("    No symbols were found in the signature file")
+            else:
+                for symi in symi_part[k]:
+                    if symi["noverb"] == "all" or defi["lang"] in symi["noverb"]:
+                        print(f"{defi['path']} at {defi['offset']}: Symbol '{defi['name']}' has a verbalization, which conflicts with "
+                              f"{symi['path']} at {symi['offset']}: noverb={repr(symi['noverb'])}")
+
 
     # Check that every verbalization is introduced only once
     if verbosity >= 2:
@@ -112,7 +118,7 @@ def check_mvx(gatherer):
     for langfk in langf_part:
         if (langfk[0], langfk[1]) not in symi_part:  # no symbols introduced
             continue
-        required_symbols = [e["name"] for e in symi_part[(langfk[0], langfk[1])] if not e["noverb"]]
+        required_symbols = [e["name"] for e in symi_part[(langfk[0], langfk[1])] if e["noverb"] != "all" and langfk[2] not in e["noverb"]]
         missing_symbols = [s for s in required_symbols if (langfk[0], langfk[1], s, langfk[2]) not in defi_part]
         langf = langf_part[langfk][0]
         if len(missing_symbols) > 0:
@@ -134,6 +140,8 @@ def check_mvlang(gatherer, lang):
             if symi["name"] in covered:
                 continue
             if (repo, modname, symi["name"], lang) in defi_part:
+                continue
+            if symi["noverb"] == "all" or lang in symi["noverb"]:
                 continue
             print(f"{symi['path']} at {symi['offset']}: No verbalization for symbol '{symi['name']}' in '{langf['path']}'")
             covered.append(symi["name"])

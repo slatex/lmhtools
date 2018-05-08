@@ -33,9 +33,14 @@ def get_params(param_str):
         return { }
 
     return {
-            e[0] : "=".join(e[1:])
-                for e in [p.split("=") for p in param_str.split(",") if "=" in p]
+            param.group("key") : param.group("val")
+                for param in re.finditer(get_params.re_param, param_str)
         }
+
+get_params.re_param = re.compile(
+        r"(?P<key>[a-zA-Z0-9_-]+)"
+        r"(?:=(?P<val>(?:[^\{\},]+)|(?:\{[^\{\}]+\})))?")
+
 
 def get_file_position(string, offset):
     """ can be used to get linenumber and character offset for a string offset """
@@ -281,6 +286,18 @@ regexes = [
         (re_symdef, TOKEN_SYMDEF),
         ]
 
+def get_noverb(param_dict):
+    if "noverb" not in param_dict:
+        return []
+    val = param_dict["noverb"]
+    if val == None:
+        return "all"
+    if val == "all":
+        return "all"
+    if val[0] == "{" and val[-1] == "}":
+        return val[1:-1].split(",")
+    return [val]
+
 def harvest_sig(string, name, ctx):
     """ harvests the data from signature file content """
     if name in ["all", "localpaths"]:
@@ -306,18 +323,17 @@ def harvest_sig(string, name, ctx):
             args = [arg for arg in args if arg != None]
 
             name = "-".join(args)
-            paramsstr = match.group("params")
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", paramsstr and "noverb" in paramsstr, ctx)
+            params = get_params(match.group("params"))
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), ctx)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
-            paramsstr = match.group("params")
-            params = get_params(paramsstr)
+            params = get_params(match.group("params"))
             arg = match.group("arg0")
             name = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", paramsstr and "noverb" in paramsstr, ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), ctx)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -337,7 +353,7 @@ def harvest_sig(string, name, ctx):
         elif token_type == required_end_sig:
             required_end_sig = None
         else:
-            ctx.log("Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+            ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
 
     if required_end_sig:
         ctx.log("\\end{gviewsig} or \\end{modsig} missing", 1)
@@ -411,7 +427,7 @@ def harvest_nl(string, name, lang, ctx):
         elif token_type == required_end_module:
             required_end_module = None
         else:
-            ctx.log("Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+            ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
 
     if required_end_module:
         ctx.log("\\end{gviewnl} or \\end{mhmodnl} missing", 1)
@@ -503,7 +519,8 @@ if __name__ == "__main__":
                 print(f"{trefi['path']} at {trefi['offset']}: {trefi['mod_name']} {trefi['mod_type']} {trefi['lang']}")
         elif command == "symi":
             for symi in ctx.gatherer.symis:
-                print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']}")
+                noverbtostr = lambda symi : repr(symi["noverb"]).replace(", ", ",")
+                print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']} noverb={noverbtostr(symi)}")
         elif command == "sigfile":
             for sigf in ctx.gatherer.sigfiles:
                 print(f"{sigf['path']}: {sigf['mod_name']} {sigf['type']}")
