@@ -23,6 +23,7 @@ Note that it does not update (`pull`) the repositories automatically.
 
 This script contains the code for collecting data.
 The script can be run directly with one of the following commands:
+* `repo`: Lists all repositories found.
 * `defi`: Lists all the verbalizations found.
 * `trefi`: Lists all the `trefi`s found.
 * `symi`: Lists all the symbol declarations/definitions found.
@@ -107,7 +108,7 @@ PATH = "../.."   # directory containing the repositories
 VERBOSITY = 1
 
 gatherer = harvest.DataGatherer()
-harvest.gather_stats_for_all_repos(PATH, harvest.HarvestContext(VERBOSITY, gatherer))
+harvest.gather_data_for_all_repos(PATH, harvest.HarvestContext(VERBOSITY, gatherer))
 
 print(gatherer.defis)       # list of dictionaries, each containing the data for one defi
 print(gatherer.symis)

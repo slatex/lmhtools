@@ -117,6 +117,13 @@ class DataGatherer(object):
         self.symis = []
         self.sigfiles = []
         self.langfiles = []
+        self.repos = []
+
+    def push_repo(self, namespace, ctx):
+        self.repos.append({
+            "repo" : ctx.repo,
+            "namespace" : namespace,
+        })
 
     def push_sigfile(self, ctx):
         assert ctx.mod_type in ["modsig", "gviewsig"]
@@ -269,6 +276,12 @@ re_symdef = re.compile(
         r"\\symdef\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
+        )
+
+re_namespace = re.compile(
+        r"\\namespace\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
 regexes = [
@@ -439,12 +452,22 @@ def harvest_nl(string, name, lang, ctx):
 
     ctx.gatherer.push_langfile(ctx)
 
+def harvest_repo_metadata(repo_directory, ctx):
+    preamble_path = os.path.join(repo_directory, "lib", "preamble.tex")
+    namespace = ""
+    if os.path.isfile(preamble_path):
+        with open(preamble_path, "r") as fp:
+            content = fp.read()
+            match = re_namespace.search(content)
+            if match:
+                namespace = match.group("arg")
+    ctx.gatherer.push_repo(namespace, ctx)
 
-def gather_stats_for_repo(repo_directory, ctx):
-    regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")
+def gather_data_for_repo(repo_directory, ctx):
+    harvest_repo_metadata(repo_directory, ctx)
     dir_path = os.path.join(repo_directory, "source")
     for file_name in os.listdir(dir_path):
-        m = regex.match(file_name)
+        m = gather_data_for_repo.file_regex.match(file_name)
         if m == None:
             continue
         name = m.group("name")
@@ -462,8 +485,9 @@ def gather_stats_for_repo(repo_directory, ctx):
                 ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
                 continue
 
+gather_data_for_repo.file_regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")
 
-def gather_stats_for_all_repos(directory, ctx):
+def gather_data_for_all_repos(directory, ctx):
     for repo in os.listdir(directory):
         try:
             if repo == "meta-inf":
@@ -474,7 +498,7 @@ def gather_stats_for_all_repos(directory, ctx):
             if not os.path.isdir(path):
                 continue
             ctx.repo = repo
-            gather_stats_for_repo(path, ctx)
+            gather_data_for_repo(path, ctx)
         except Exception as ex:
             if ctx.verbosity >= 1:
                 print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
@@ -487,12 +511,12 @@ if __name__ == "__main__":
         print("Usage:   smglom_harvest.py {COMMAND} [VERBOSITY] {DIRECTORY}")
         print("Example: smglom_harvest.py defi -v3 ~/git/gl_mathhub_info/smglom")
         print()
-        print("COMMAND      What shall be printed. Can be one of defi, trefi, symi, sigfile, langfile.")
+        print("COMMAND      What shall be printed. Can be one of repo, defi, trefi, symi, sigfile, langfile.")
         print("VERBOSITY    Can be -v0, -v1, -v2, and -v3 where is the highest")
     if len(sys.argv) < 3 or len(sys.argv) > 4:
         print("Invalid number of arguments\n")
         print_usage()
-    elif sys.argv[1] not in ["defi", "trefi", "symi", "sigfile", "langfile"]:
+    elif sys.argv[1] not in ["repo", "defi", "trefi", "symi", "sigfile", "langfile"]:
         print(f"Invalid command '{sys.argv[1]}'\n")
         print_usage()
     elif len(sys.argv) == 4 and sys.argv[2] not in ["-v0", "-v1", "-v2", "-v3"]:
@@ -506,12 +530,15 @@ if __name__ == "__main__":
         if verbosity >= 2:
             print("GATHERING DATA\n")
         ctx = HarvestContext(verbosity, DataGatherer())
-        gather_stats_for_all_repos(sys.argv[-1], ctx)
+        gather_data_for_all_repos(sys.argv[-1], ctx)
 
         if verbosity >= 2 or ctx.something_was_logged:
             print("\n\nRESULTS\n")
         command = sys.argv[1]
-        if command == "defi":
+        if command == "repo":
+            for repo in ctx.gatherer.repos:
+                print(f"{repo['repo']} namespace={repr(repo['namespace'])}")
+        elif command == "defi":
             for defi in ctx.gatherer.defis:
                 print(f"{defi['path']} at {defi['offset']}: {defi['mod_name']}?{defi['name']} {defi['lang']} \"{defi['string']}\"")
         elif command == "trefi":

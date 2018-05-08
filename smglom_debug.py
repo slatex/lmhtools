@@ -179,7 +179,7 @@ if __name__ == "__main__":
     if verbosity >= 2:
         print("GATHERING DATA\n")
     ctx = harvest.HarvestContext(verbosity, harvest.DataGatherer())
-    harvest.gather_stats_for_all_repos(sys.argv[-1], ctx)
+    harvest.gather_data_for_all_repos(sys.argv[-1], ctx)
 
     if verbosity >= 2:
         print("\n\nCHECKING DATA\n")
