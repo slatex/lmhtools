@@ -498,25 +498,29 @@ def gather_data_for_repo(repo_directory, ctx):
                 ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
                 continue
 
+
 gather_data_for_repo.file_regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")
 
 def gather_data_for_all_repos(directory, ctx):
-    for repo in os.listdir(directory):
+    """ recursively finds git repos and calls gather_data_for_all_repos on them """
+    if os.path.isdir(os.path.join(directory, ".git")):  ## TODO: Is there a better way?
         try:
-            if repo == "meta-inf":
-                # if ctx.verbosity >= 4:
-                #     print("Skipping meta-inf")
-                continue
-            path = os.path.join(directory, repo)
-            if not os.path.isdir(path):
-                continue
-            ctx.repo = repo
-            gather_data_for_repo(path, ctx)
+            ctx.repo = directory.split("/")[-1]   ## TODO: Do this system-independently
+            gather_data_for_repo(directory, ctx)
         except Exception as ex:
             if ctx.verbosity >= 1:
                 print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
                 print(exception_to_string(ex))
+        return
+
+    for subdir in os.listdir(directory):
+        if subdir == "meta-inf":
+            # if ctx.verbosity >= 4:
+            #     print("Skipping meta-inf")
             continue
+        subdirpath = os.path.join(directory, subdir)
+        if os.path.isdir(subdirpath):
+            gather_data_for_all_repos(subdirpath, ctx)
 
 
 if __name__ == "__main__":
