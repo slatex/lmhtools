@@ -313,9 +313,11 @@ def get_noverb(param_dict):
         return val[1:-1].split(",")
     return [val]
 
-def get_align(params):
+def get_align(params, name):
     if "align" in params:
-        return params["align"]
+        if params["align"] != None:
+            return params["align"]
+        return name
     elif "noalign" in params:
         return "noalign"
     else:
@@ -348,7 +350,7 @@ def harvest_sig(string, name, ctx):
 
             name = "-".join(args)
             params = get_params(match.group("params"))
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params), ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
@@ -357,7 +359,7 @@ def harvest_sig(string, name, ctx):
             params = get_params(match.group("params"))
             arg = match.group("arg0")
             name = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params), ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params, name), ctx)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -367,7 +369,7 @@ def harvest_sig(string, name, ctx):
             ctx.mod_type = "modsig"
             ctx.mod_name = match.group("name")
             params = get_params(match.group("params"))
-            mod_align = get_align(params)
+            mod_align = get_align(params, ctx.mod_name)
         elif token_type == TOKEN_BEGIN_GVIEWSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_GVIEWSIG
