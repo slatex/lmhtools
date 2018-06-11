@@ -10,7 +10,7 @@ file etc.
 The verbosity level changes what kind of errors are displayed.
 """
 
-import sys
+import sys, os
 import smglom_harvest as harvest
 
 class EmacsLogger(object):
@@ -20,7 +20,7 @@ class EmacsLogger(object):
         self.fp = open(path, "w")
 
     def format_filepos(self, path, offset=None):
-        return f"{path}:{offset.split(':')[0] if offset else 1}"
+        return f"{os.path.abspath(path)}:{offset.split(':')[0] if offset else 1}"
 
     def log(self, message, minverbosity=1, filepath=None, offset=None):
         if self.verbosity < minverbosity:
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     if emacs:
         logger.finish()
-        import subprocess, os
+        import subprocess
         subprocess.call(["emacsclient", "-a", "emacs", emacs_bufferpath])
         os.remove(emacs_bufferpath)
 
