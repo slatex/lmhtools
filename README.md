@@ -59,6 +59,7 @@ Other issues that are not really considered errors can be shown with extra comma
 * `-mv-...`: `...` should be a language like `en` or `de`.
         The script then prints all missing verbalizations for the language,
         even if no language file for a module has been created yet.
+* `-e`: emacs mode (different formatting of file paths, output directly opened in emacs)
 
 Example call:
 ```bash
@@ -109,7 +110,8 @@ PATH = "../.."   # directory containing the repositories
 VERBOSITY = 1
 
 gatherer = harvest.DataGatherer()
-harvest.gather_data_for_all_repos(PATH, harvest.HarvestContext(VERBOSITY, gatherer))
+logger = harvest.SimpleLogger(VERBOSITY)
+harvest.gather_data_for_all_repos(PATH, harvest.HarvestContext(logger, gatherer))
 
 print(gatherer.defis)       # list of dictionaries, each containing the data for one defi
 print(gatherer.repos)

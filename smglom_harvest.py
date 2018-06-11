@@ -82,14 +82,35 @@ def exception_to_string(excp):
     return ''.join(pretty) + '\n  {} {}'.format(excp.__class__,excp)
 
 
+class SimpleLogger(object):
+    def __init__(self, verbosity):
+        assert 0 <= verbosity <= 4
+        self.verbosity = verbosity
+
+    def format_filepos(self, path, offset=None):
+        return path + " at " + offset if offset else path
+
+    def log(self, message, minverbosity=1, filepath=None, offset=None):
+        if self.verbosity < minverbosity:
+            return False
+        
+        if offset:
+            print(f"{filepath} at {offset}: {message}")
+        elif filepath:
+            print(f"{filepath}: {message}")
+        else:
+            print(f"{message}")
+
+        return True
+
+
 class HarvestContext(object):
     """ The HarvestContext keeps (among other things) data about 'what' is currently processed.
         This includes things like the current repository, file name, ...
         It also has a reference to the DataGatherer. """
-    def __init__(self, verbosity, gatherer):
-        assert 0 <= verbosity <= 4
+    def __init__(self, logger, gatherer):
 
-        self.verbosity = verbosity
+        self.logger = logger
         self.gatherer = gatherer
 
         self.mod_name = None
@@ -100,14 +121,11 @@ class HarvestContext(object):
 
         self.something_was_logged = False
 
-    def log(self, message, minverbosity=1, offsetstr=None):
-        if self.verbosity < minverbosity:
-            return
-        self.something_was_logged = True
-        if offsetstr:
-            print(f"{self.file} at {offsetstr}: {message}")
-        else:
-            print(f"{self.file}: {message}")
+    def log(self, message, minverbosity=1, offsetstr=None, forfile = True):
+        self.something_was_logged = self.something_was_logged or \
+                self.logger.log(message, minverbosity,
+                        filepath=self.file if forfile else None,
+                        offset=offsetstr)
 
 class DataGatherer(object):
     """ The DataGatherer collects all the data from the files """
@@ -510,9 +528,7 @@ def gather_data_for_all_repos(directory, ctx):
             ctx.repo = directory.split("/")[-1]   ## TODO: Do this system-independently
             gather_data_for_repo(directory, ctx)
         except Exception as ex:
-            if ctx.verbosity >= 1:
-                print("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":")
-                print(exception_to_string(ex))
+            ctx.log("Error while obtaining statistics for repo " + os.path.join(directory, repo) + ":\n" + exception_to_string(ex), forfile=False)
         return
 
     for subdir in os.listdir(directory):
@@ -548,7 +564,7 @@ if __name__ == "__main__":
 
         if verbosity >= 2:
             print("GATHERING DATA\n")
-        ctx = HarvestContext(verbosity, DataGatherer())
+        ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer())
         gather_data_for_all_repos(sys.argv[-1], ctx)
 
         if verbosity >= 2 or ctx.something_was_logged:

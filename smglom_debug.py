@@ -13,6 +13,29 @@ The verbosity level changes what kind of errors are displayed.
 import sys
 import smglom_harvest as harvest
 
+class EmacsLogger(object):
+    def __init__(self, verbosity, path):
+        assert 0 <= verbosity <= 4
+        self.verbosity = verbosity
+        self.fp = open(path, "w")
+
+    def format_filepos(self, path, offset=None):
+        return f"{path}:{offset.split(':')[0] if offset else 1}"
+
+    def log(self, message, minverbosity=1, filepath=None, offset=None):
+        if self.verbosity < minverbosity:
+            return False
+        
+        if filepath:
+            self.fp.write(f"{self.format_filepos(filepath, offset)}: {message}\n")
+        else:
+            self.fp.write(f"{message}\n")
+
+        return True
+
+    def finish(self):
+        self.fp.close()
+
 
 def partition(entries, key):
     result = {}
@@ -27,8 +50,11 @@ def unique_list(l):
     return sorted(list(set(l)))
 
 
-def check_data(gatherer, verbosity):
-    """ Checks data for errors (but not for things like missing verbalizations) """
+def check_data(gatherer, verbosity, logger):
+    """
+        Checks data for errors (but not for things like missing verbalizations)
+        `verbosity` is needed for optimization (don't look for errors that wouldn't be logged)
+    """
 
     # partition data for efficient look-up
     repo_part = partition(gatherer.repos, lambda e : e["repo"])
@@ -46,14 +72,16 @@ def check_data(gatherer, verbosity):
         for langf in gatherer.langfiles:
             k = (langf["repo"], langf["mod_name"])
             if k not in sigf_part:
-                print(f"{langf['path']}: No signature file with name '{langf['mod_name']}' found in repo '{langf['repo']}'.")
-                print("   Signature files for the following modules were found in the repo:", 
-                        ", ".join(unique_list([e[1] for e in sigf_part.keys() if e[0] == langf["mod_name"]])))
+                logger.log(f"No signature file with name '{langf['mod_name']}' found in repo '{langf['repo']}'.\n" +
+                        "   Signature files for the following modules were found in the repo:", 
+                        ", ".join(unique_list([e[1] for e in sigf_part.keys() if e[0] == langf["mod_name"]])),
+                        minverbosity=1, filepath=langf['path'])
                 continue
             sigfiles = sigf_part[k]
             sigf = sigfiles[0]
             if {"mhmodnl" : "modsig", "gviewnl" : "gviewsig" }[langf["type"]] != sigf["type"]:
-                print(f"{langf['path']}: Is of type {langf['type']} but the signature file ({sigf['path']}) is {sigf['type']}")
+                logger.log(f"Is of type {langf['type']} but the signature file ({sigf['path']}) is {sigf['type']}",
+                        minverbosity=1, filepath=langf['path'])
 
 
     # Check that for every language file there is a corresponding signature file
@@ -61,15 +89,13 @@ def check_data(gatherer, verbosity):
         for langfk in langf_part:
             langfs = langf_part[langfk]
             if len(langfs) > 1:
-                print(f"Multiple files for '{langfs[0]['mod_name']}' in repo '{langfs[0]['repo']}' for '{langfs[0]['lang']}':")
-                for langf in langfs:
-                    print(f"    {langf['path']}")
+                logger.log(f"Multiple files for '{langfs[0]['mod_name']}' in repo '{langfs[0]['repo']}' for '{langfs[0]['lang']}':" +
+                        "".join(["\n    " + logger.format_filepos(langf['path']) for langf in langfs]), minverbosity=1)
         for sigfk in sigf_part:
             sigfs = sigf_part[sigfk]
             if len(sigfs) > 1:
-                print(f"Multiple signature files for '{sigfs[0]['mod_name']}' in repo '{sigfs[0]['repo']}':")
-                for sigf in sigfs:
-                    print(f"    {sigf['path']}")
+                logger.log(f"Multiple signature files for '{sigfs[0]['mod_name']}' in repo '{sigfs[0]['repo']}':" +
+                        "".join(["\n    " + logger.format_filepos(sigf['path']) for sigf in sigfs]), minverbosity=1)
 
     # Check that for every defi there is a symi
     if verbosity >= 2:
@@ -77,18 +103,20 @@ def check_data(gatherer, verbosity):
             defi = defi_part[defik][0]  # we don't care about different verbalizations
             k = (defi["repo"], defi["mod_name"], defi["name"])
             if k not in symi_part:
-                print(f"{defi['path']} at {defi['offset']}: Symbol '{defi['name']}' not found in signature file")
+                message = f"Symbol '{defi['name']}' not found in signature file"
                 k2 = (defi["repo"], defi["mod_name"])
                 if k2 in symi_part2:
-                    print("    The following symbols were found in the signature file:",
-                        ", ".join(unique_list([e["name"] for e in symi_part2[k2]])))
+                    message += "\n    The following symbols were found in the signature file: " +\
+                        ", ".join(unique_list([e["name"] for e in symi_part2[k2]]))
                 else:
-                    print("    No symbols were found in the signature file")
+                    message  += "\n    No symbols were found in the signature file"
+                logger.log(message, minverbosity=2, filepath=defi['path'], offset=defi['offset'])
             else:
                 for symi in symi_part[k]:
                     if symi["noverb"] == "all" or defi["lang"] in symi["noverb"]:
-                        print(f"{defi['path']} at {defi['offset']}: Symbol '{defi['name']}' has a verbalization, which conflicts with "
-                              f"{symi['path']} at {symi['offset']}: noverb={repr(symi['noverb'])}")
+                        logger.log(f"Symbol '{defi['name']}' has a verbalization, which conflicts with "
+                              f"{symi['path']} at {symi['offset']}: noverb={repr(symi['noverb'])}",
+                              minverbosity=2, filepath=defi['path'], offset=defi['offset'])
 
 
     # Check that every verbalization is introduced only once
@@ -99,18 +127,18 @@ def check_data(gatherer, verbosity):
             for verbalization in part:
                 vs = part[verbalization]
                 if len(vs) > 1:
-                    print(f"Verbalization '{verbalization}' provided multiple times:")
-                    for v in vs:
-                        print(f"    {v['path']} at {v['offset']}")
+                    logger.log(f"Verbalization '{verbalization}' provided multiple times:" +
+                            "".join(["\n    " + logger.format_filepos(v['path'], v['offset']) for v in vs]),
+                            minverbosity = 2)
 
     # Check if symbol was introduced several times with symi
     if verbosity >= 2:
         for symik in symi_part:
             symis = [s for s in symi_part[symik] if s["type"] == "symi"]
             if len(symis) > 1:
-                print(f"Symbol '{symis[0]['name']}' was introduced several times in a symi:")
-                for symi in symis:
-                    print(f"    {symi['path']} at {symi['offset']}")
+                logger.log(f"Symbol '{symis[0]['name']}' was introduced several times in a symi:" +
+                        "".join(["\n    " + logger.format_filepos(symi['path'], symi['offset']) for symi in symis]),
+                        minverbosity = 2)
 
     # Check for missing namespaces
     if verbosity >= 2:
@@ -119,7 +147,7 @@ def check_data(gatherer, verbosity):
                 continue
             for sigf in sigf_part2[repo]:
                 if sigf["type"] == "modsig" and sigf["align"] and sigf["align"] != "noalign":
-                    print(f"{sigf['path']}: Has alignment, but no namespace is set for the repository")
+                    logger.log(f"Has alignment, but no namespace is set for the repository", minverbosity=2, filepath=sigf['path'])
                     break
 
     # Check for missing module alignments
@@ -133,11 +161,12 @@ def check_data(gatherer, verbosity):
 
             for symi in symi_part2[sigfk]:
                 if symi["align"] and symi["align"] != "noalign":
-                    print(f"{symi['path']} at {symi['offset']}: Found alignment, but module is not aligned")
+                    logger.log(f"Found alignment, but module is not aligned",
+                            minverbosity = 2, filepath=symi['path'], offset=symi['offset'])
                     break
 
 
-def check_mvx(gatherer):
+def check_mvx(gatherer, logger):
     langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
     symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
     defi_part = partition(gatherer.defis, lambda e : (e["repo"], e["mod_name"], e["name"], e["lang"]))
@@ -149,9 +178,10 @@ def check_mvx(gatherer):
         missing_symbols = [s for s in required_symbols if (langfk[0], langfk[1], s, langfk[2]) not in defi_part]
         langf = langf_part[langfk][0]
         if len(missing_symbols) > 0:
-            print(f"{langf['path']}: Missing verbalizations for the following symbols: {', '.join(unique_list(missing_symbols))}")
+            logger.log(f"Missing verbalizations for the following symbols: {', '.join(unique_list(missing_symbols))}",
+                    filepath=langf['path'])
 
-def check_mvlang(gatherer, lang):
+def check_mvlang(gatherer, lang, logger):
     sigf_part = partition(gatherer.sigfiles, lambda e : (e["repo"], e["mod_name"]))
     langf_part = partition(gatherer.langfiles, lambda e : (e["repo"], e["mod_name"], e["lang"]))
     symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
@@ -159,7 +189,7 @@ def check_mvlang(gatherer, lang):
 
     for (repo, modname) in symi_part:
         if (repo, modname, lang) not in langf_part:
-            print(f"{sigf_part[(repo, modname)][0]['path']}: No mhmodnl for language '{lang}'")
+            logger.log(f"No mhmodnl for language '{lang}'", filepath=sigf_part[(repo, modname)][0]['path'])
             continue
         langf = langf_part[(repo, modname, lang)][0]
         covered = []
@@ -170,25 +200,27 @@ def check_mvlang(gatherer, lang):
                 continue
             if symi["noverb"] == "all" or lang in symi["noverb"]:
                 continue
-            print(f"{symi['path']} at {symi['offset']}: No verbalization for symbol '{symi['name']}' in '{langf['path']}'")
+            logger.log(f"No verbalization for symbol '{symi['name']}' in '{langf['path']}'",
+                    filepath=symi['path'], offset=symi['offset'])
             covered.append(symi["name"])
 
-def check_ma(gatherer):
+def check_ma(gatherer, logger):
     sigf_part = partition(gatherer.sigfiles, lambda e : e["repo"])
     symi_part = partition(gatherer.symis, lambda e : (e["repo"], e["mod_name"]))
     for repo in gatherer.repos:
         if not repo["namespace"]:
-            print(f"Repository '{repo['repo']}' has no namespace set in preamble")
+            logger.log(f"Repository '{repo['repo']}' has no namespace set in preamble")
             continue
         for sigf in sigf_part[repo['repo']]:
             if sigf["type"] == "glviewsig":
                 continue
             if not sigf["align"]:
-                print(f"{sigf['path']}: No module alignment provided")
+                logger.log("No module alignment provided", filepath=sigf['path'])
                 continue
             for symi in symi_part[(repo["repo"], sigf["mod_name"])]:
                 if not symi["align"]:
-                    print(f"{symi['path']} at {symi['offset']}: No alignment provided for symbol {symi['name']}")
+                    logger.log(f"No alignment provided for symbol {symi['name']}",
+                            filepath=symi['path'], offset=symi['offset'])
             
         
 
@@ -202,6 +234,7 @@ if __name__ == "__main__":
         print("                 -mv-...  Show all missing verbalizations for the language '...', where ... is e.g. en or de")
         print("                 -mvx     Show verbalizations missing in existing mhmodnls")
         print("                 -ma      Show missing aligments")
+        print("                 -e       emacs mode")
     if len(sys.argv) < 2:
         print("Not enough arguments\n")
         print_usage()
@@ -211,8 +244,11 @@ if __name__ == "__main__":
     mv_lang = []
     mvx = False
     ma = False
+    emacs = False
     for arg in sys.argv[1:-1]:
-        if arg == "-mvx":
+        if arg == "-e":
+            emacs = True
+        elif arg == "-mvx":
             mvx = True
         elif arg == "-ma":
             ma = True
@@ -225,27 +261,35 @@ if __name__ == "__main__":
             print_usage()
             sys.exit(1)
 
-    if verbosity >= 2:
-        print("GATHERING DATA\n")
-    ctx = harvest.HarvestContext(verbosity, harvest.DataGatherer())
+    if emacs:
+        import datetime
+        emacs_bufferpath = "/tmp/smglom_debug-" + str(datetime.datetime.now()).replace(" ", "T")+".log"
+        logger = EmacsLogger(verbosity, emacs_bufferpath)
+    else:
+        logger = harvest.SimpleLogger(verbosity)
+
+    logger.log("GATHERING DATA\n", minverbosity=2)
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
     harvest.gather_data_for_all_repos(sys.argv[-1], ctx)
 
-    if verbosity >= 2:
-        print("\n\nCHECKING DATA\n")
-    check_data(ctx.gatherer, verbosity)
+    logger.log("\n\nCHECKING DATA\n", minverbosity=2)
+    check_data(ctx.gatherer, verbosity, logger)
 
     if mvx:
-        if verbosity >= 2:
-            print("\n\nLOOKING FOR MISSING VERBALIZATIONS IN MHMODNLs\n")
-        check_mvx(ctx.gatherer)
+        logger.log("\n\nLOOKING FOR MISSING VERBALIZATIONS IN MHMODNLs\n", minverbosity=2)
+        check_mvx(ctx.gatherer, logger)
 
     for lang in mv_lang:
-        if verbosity >= 2:
-            print("\n\nLOOKING FOR MISSING VERBALIZATIONS OF LANGUAGE '" + lang + "'\n")
-        check_mvlang(ctx.gatherer, lang)
+        logger.log("\n\nLOOKING FOR MISSING VERBALIZATIONS OF LANGUAGE '" + lang + "'\n", minverbosity=2)
+        check_mvlang(ctx.gatherer, lang, logger)
 
     if ma:
-        if verbosity >= 2:
-            print("\n\nLOOKING FOR MISSING ALIGNMENTS\n")
-        check_ma(ctx.gatherer)
+        logger.log("\n\nLOOKING FOR MISSING ALIGNMENTS\n", minverbosity=2)
+        check_ma(ctx.gatherer, logger)
+
+    if emacs:
+        logger.finish()
+        import subprocess, os
+        subprocess.call(["emacsclient", "-a", "emacs", emacs_bufferpath])
+        os.remove(emacs_bufferpath)
 
