@@ -19,15 +19,16 @@ class EmacsLogger(object):
         self.verbosity = verbosity
         self.fp = open(path, "w")
 
-    def format_filepos(self, path, offset=None):
-        return f"{os.path.abspath(path)}:{offset.split(':')[0] if offset else 1}"
+    def format_filepos(self, path, offset=None, with_col=False):
+        # with_col ignored (for emacs we always need it)
+        return f"{os.path.abspath(path)}:{offset.split(':')[0] if offset else 1}:"
 
     def log(self, message, minverbosity=1, filepath=None, offset=None):
         if self.verbosity < minverbosity:
             return False
         
         if filepath:
-            self.fp.write(f"{self.format_filepos(filepath, offset)}: {message}\n")
+            self.fp.write(f"{self.format_filepos(filepath, offset, True)} {message}\n")
         else:
             self.fp.write(f"{message}\n")
 

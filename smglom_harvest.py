@@ -87,17 +87,15 @@ class SimpleLogger(object):
         assert 0 <= verbosity <= 4
         self.verbosity = verbosity
 
-    def format_filepos(self, path, offset=None):
-        return path + " at " + offset if offset else path
+    def format_filepos(self, path, offset=None, with_col=False):
+        return (path + " at " + offset if offset else path) + (":" if with_col else "")
 
     def log(self, message, minverbosity=1, filepath=None, offset=None):
         if self.verbosity < minverbosity:
             return False
         
-        if offset:
-            print(f"{filepath} at {offset}: {message}")
-        elif filepath:
-            print(f"{filepath}: {message}")
+        if filepath:
+            print(f"{self.format_filepos(filepath, offset, True)} {message}\n")
         else:
             print(f"{message}")
 
