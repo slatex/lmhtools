@@ -10,7 +10,7 @@ file etc.
 The verbosity level changes what kind of errors are displayed.
 """
 
-import sys, os
+import os
 import smglom_harvest as harvest
 
 class EmacsLogger(object):
@@ -226,43 +226,21 @@ def check_ma(gatherer, logger):
         
 
 if __name__ == "__main__":
-    def print_usage():
-        print("Usage:   smglom_debug.py [VERBOSITY] [OPTIONS]* {DIRECTORY}")
-        print("Example: smglom_debug.py -v3 -mv-en ~/git/gl_mathhub_info/smglom")
-        print()
-        print("VERBOSITY    Can be -v1, -v2, and -v3 where is the highest")
-        print("OPTIONS      Options are:")
-        print("                 -mv-...  Show all missing verbalizations for the language '...', where ... is e.g. en or de")
-        print("                 -mvx     Show verbalizations missing in existing mhmodnls")
-        print("                 -ma      Show missing aligments")
-        print("                 -e       emacs mode")
-    if len(sys.argv) < 2:
-        print("Not enough arguments\n")
-        print_usage()
-        sys.exit(1)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Script for finding inconsistencies in SMGloM",
+            epilog="Example call: smglom_debug.py -v3 -mv en de -ma ../..")
+    parser.add_argument("-v", "--verbosity", type=int, default=2, choices=range(4), help="the verbosity (default: 2)")
+    parser.add_argument("-ma", "--missing-alignments", action="store_true", help="show missing alignments")
+    parser.add_argument("-mv", "--missing-verbalizations", type=str, metavar="LANG", nargs="*", help="show missing verbalizations for these languages(e.g. en de all)")
+    parser.add_argument("-im", "--incomplete-mhmodnl", action="store_true", help="show verbalizations missing in existing mhmodnls")
+    parser.add_argument("-e", "--emacs", action="store_true")
+    parser.add_argument("DIRECTORY", nargs="+", help="git repo or higher level directory which is debugged")
+    args = parser.parse_args()
 
-    verbosity = 3
-    mv_lang = []
-    mvx = False
-    ma = False
-    emacs = False
-    for arg in sys.argv[1:-1]:
-        if arg == "-e":
-            emacs = True
-        elif arg == "-mvx":
-            mvx = True
-        elif arg == "-ma":
-            ma = True
-        elif arg in ["-v1", "-v2", "-v3"]:
-            verbosity = int(arg[-1])
-        elif arg.startswith("-mv-"):
-            mv_lang.append(arg[4:])
-        else:
-            print(f"Unexpected argument '{arg}'\n")
-            print_usage()
-            sys.exit(1)
+    verbosity = args.verbosity
 
-    if emacs:
+    if args.emacs:
         import datetime
         emacs_bufferpath = "/tmp/smglom_debug-" + str(datetime.datetime.now()).replace(" ", "T")+".log"
         logger = EmacsLogger(verbosity, emacs_bufferpath)
@@ -271,24 +249,34 @@ if __name__ == "__main__":
 
     logger.log("GATHERING DATA\n", minverbosity=2)
     ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
-    harvest.gather_data_for_all_repos(sys.argv[-1], ctx)
+    for directory in args.DIRECTORY:
+        harvest.gather_data_for_all_repos(directory, ctx)
 
     logger.log("\n\nCHECKING DATA\n", minverbosity=2)
     check_data(ctx.gatherer, verbosity, logger)
 
-    if mvx:
+    if args.incomplete_mhmodnl:
         logger.log("\n\nLOOKING FOR MISSING VERBALIZATIONS IN MHMODNLs\n", minverbosity=2)
         check_mvx(ctx.gatherer, logger)
 
-    for lang in mv_lang:
+    mv_langs = args.missing_verbalizations
+    if not mv_langs: mv_langs = []
+    all_langs = sorted(list(set([e["lang"] for e in ctx.gatherer.langfiles])))
+    if "all" in mv_langs:
+        mv_langs = all_langs
+
+    for lang in mv_langs:
         logger.log("\n\nLOOKING FOR MISSING VERBALIZATIONS OF LANGUAGE '" + lang + "'\n", minverbosity=2)
+        if lang not in all_langs:
+            logger.log(f"No files for language '{lang}' were found", minverbosity=1)
+            continue
         check_mvlang(ctx.gatherer, lang, logger)
 
-    if ma:
+    if args.missing_alignments:
         logger.log("\n\nLOOKING FOR MISSING ALIGNMENTS\n", minverbosity=2)
         check_ma(ctx.gatherer, logger)
 
-    if emacs:
+    if args.emacs:
         logger.finish()
         import subprocess
         subprocess.call(["emacsclient", "-a", "emacs", emacs_bufferpath])

@@ -47,6 +47,12 @@ Prints lines like the following ones:
 The verbosity can be changed with a command-line option (e.g. `-v1`) to reduce the number of errors
 shown during the data gathering.
 
+For more information run
+
+```bash
+./smglom_harvest.py --help
+```
+
 ### smglom_debug.py
 
 This script uses the code from `smglom_harvest.py` to gather data and then checks for
@@ -55,10 +61,10 @@ Depending on the verbosity, more or fewer types of errors are displayed.
 
 Other issues that are not really considered errors can be shown with extra command line options:
 * `-ma`: Show missing alignments.
-* `-mvx`: Show missing verbalizations in all language files.
-* `-mv-...`: `...` should be a language like `en` or `de`.
-        The script then prints all missing verbalizations for the language,
-        even if no language file for a module has been created yet.
+* `-im`: Show missing verbalizations in all existing language files.
+* `-mv`: The script prints all missing verbalizations for the languages specified after this argument,
+         including if a language file is missing for a module.
+         Examples with the language arguments could be `-mv en de` or `-mv all`.
 * `-e`: emacs mode (different formatting of file paths, output directly opened in emacs)
 
 Example call:
@@ -74,10 +80,18 @@ Verbalization 'multiset' provided multiple times:
     ../../sets/source/multiset.en.tex at 4:73
     ../../sets/source/multiset.en.tex at 8:96
 ```
-as well as missing verbalizations, because of the `-mvx` option:
+as well as missing verbalizations, because of the `-im` option:
 ```
 ../../mv/source/defeq.en.tex: Missing verbalizations for the following symbols: defequiv, eqdef
 ../../mv/source/mv.de.tex: Missing verbalizations for the following symbols: biimpl, conj, disj, exis, exisS, foral, foralS, imply, negate, nexis, nexisS, uexis, uexisS
+```
+
+Note that several directories can be passed to the script.
+
+For more information run
+
+```bash
+./smglom_debug.py --help
 ```
 
 ### smglom_stats.py
@@ -89,11 +103,19 @@ Example call:
 ./smglom_stats.py -v0 ../..
 ```
 
-`-v0` suppresses errors during data gathering.
+Note that several directories can be passed to the script.
+
+`-v0` sets the verbosity to 0, which suppresses errors during data gathering.
 Note that errors can skew the statistics. For example, the percentages for each language
 indicate what percentage of symbols has a verbalization in that language.
 This can be more than 100% if there are a lot of verbalizations for symbols
 that are not declared in signature files.
+
+For more information run
+
+```bash
+./smglom_stats.py --help
+```
 
 ### Developer notes
 

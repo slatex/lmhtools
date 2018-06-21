@@ -8,7 +8,6 @@ A verbosity level can be set to change the what kind of errors
 should be displayed during data collection.
 """
 
-import sys
 import smglom_harvest as harvest
 
 
@@ -90,21 +89,22 @@ def print_stats(gatherer):
           f"{len([e for e in gatherer.sigfiles if e['type']=='gviewsig']):9}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 and (len(sys.argv) != 3 or sys.argv[1] not in ["-v0", "-v1", "-v2", "-v3", "-v4"]):
-        print("Usage:   smglom_stats.py [VERBOSITY] {DIRECTORY}")
-        print("Example: smglom_stats.py -v3 ~/git/gl_mathhub_info/smglom")
-        print("The verbosity can be -v0, -v1, -v2, and -v3, -v4 where -v4 is the highest")
-    else:
-        verbosity = 1
-        if len(sys.argv) == 3:
-            verbosity = int(sys.argv[1][-1])
+    import argparse
 
-        if verbosity >= 2:
-            print("GATHERING DATA\n")
-        logger = harvest.SimpleLogger(verbosity)
-        ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
-        harvest.gather_data_for_all_repos(sys.argv[-1], ctx)
+    parser = argparse.ArgumentParser(description="Script for printing SMGloM statistics",
+            epilog="Example call: smglom_stats.py -v0 ../..")
+    parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4), help="the verbosity (default: 1)")
+    parser.add_argument("DIRECTORY", nargs="+", help="git repo or higher level directory for which statistics are generated")
+    args = parser.parse_args()
 
+    if args.verbosity >= 2:
+        print("GATHERING DATA\n")
+    logger = harvest.SimpleLogger(args.verbosity)
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
+    for directory in args.DIRECTORY:
+        harvest.gather_data_for_all_repos(directory, ctx)
+
+    if args.verbosity >= 2 or ctx.something_was_logged:
         print("\n\nSTATISTICS\n")
-        print_stats(ctx.gatherer)
+    print_stats(ctx.gatherer)
     

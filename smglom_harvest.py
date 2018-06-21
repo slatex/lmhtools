@@ -12,7 +12,7 @@ Note that the LaTeX is not parsed properly - instead, regular expressions are
 used, which come with their natural limitiations.
 """
 
-import sys, os
+import os
 import re
 import traceback
 
@@ -540,50 +540,45 @@ def gather_data_for_all_repos(directory, ctx):
 
 
 if __name__ == "__main__":
-    def print_usage():
-        print("Usage:   smglom_harvest.py {COMMAND} [VERBOSITY] {DIRECTORY}")
-        print("Example: smglom_harvest.py defi -v3 ~/git/gl_mathhub_info/smglom")
-        print()
-        print("COMMAND      What shall be printed. Can be one of repo, defi, trefi, symi, sigfile, langfile.")
-        print("VERBOSITY    Can be -v0, -v1, -v2, and -v3 where is the highest")
-    if len(sys.argv) < 3 or len(sys.argv) > 4:
-        print("Invalid number of arguments\n")
-        print_usage()
-    elif sys.argv[1] not in ["repo", "defi", "trefi", "symi", "sigfile", "langfile"]:
-        print(f"Invalid command '{sys.argv[1]}'\n")
-        print_usage()
-    elif len(sys.argv) == 4 and sys.argv[2] not in ["-v0", "-v1", "-v2", "-v3"]:
-        print(f"Didn't expect argument '{sys.argv[2]}'")
-        print_usage()
-    else:
-        verbosity = 2
-        if len(sys.argv) == 4:
-            verbosity = int(sys.argv[2][-1])
+    import argparse
 
-        if verbosity >= 2:
-            print("GATHERING DATA\n")
-        ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer())
-        gather_data_for_all_repos(sys.argv[-1], ctx)
+    parser = argparse.ArgumentParser(description="Script for gathering SMGloM data",
+            epilog="Example call: smglom_harvest.py -v1 defi ../..")
+    parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4),
+            help="the verbosity (default: 1)")
+    parser.add_argument("COMMAND", choices=["repo", "defi", "trefi", "symi", "sigfile", "langfile"],
+            help="print this type of data")
+    parser.add_argument("DIRECTORY", nargs="+",
+            help="git repo or higher level directory from which data is gathered")
+    args = parser.parse_args()
 
-        if verbosity >= 2 or ctx.something_was_logged:
-            print("\n\nRESULTS\n")
-        command = sys.argv[1]
-        if command == "repo":
-            for repo in ctx.gatherer.repos:
-                print(f"{repo['repo']} namespace={repr(repo['namespace'])}")
-        elif command == "defi":
-            for defi in ctx.gatherer.defis:
-                print(f"{defi['path']} at {defi['offset']}: {defi['mod_name']}?{defi['name']} {defi['lang']} \"{defi['string']}\"")
-        elif command == "trefi":
-            for trefi in ctx.gatherer.trefis:
-                print(f"{trefi['path']} at {trefi['offset']}: {trefi['mod_name']} {trefi['mod_type']} {trefi['lang']}")
-        elif command == "symi":
-            for symi in ctx.gatherer.symis:
-                noverbtostr = lambda symi : repr(symi["noverb"]).replace(", ", ",")
-                print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']} noverb={noverbtostr(symi)} align={symi['align']}")
-        elif command == "sigfile":
-            for sigf in ctx.gatherer.sigfiles:
-                print(f"{sigf['path']}: name={sigf['mod_name']} type={sigf['type']} align={repr(sigf['align'])}")
-        elif command == "langfile":
-            for langf in ctx.gatherer.langfiles:
-                print(f"{langf['path']}: {langf['mod_name']} {langf['type']} {langf['lang']}")
+    verbosity = args.verbosity
+    if verbosity >= 2:
+        print("GATHERING DATA\n")
+    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer())
+    for directory in args.DIRECTORY:
+        gather_data_for_all_repos(directory, ctx)
+
+    if verbosity >= 2 or ctx.something_was_logged:
+        print("\n\nRESULTS\n")
+
+    command = args.COMMAND
+    if command == "repo":
+        for repo in ctx.gatherer.repos:
+            print(f"{repo['repo']} namespace={repr(repo['namespace'])}")
+    elif command == "defi":
+        for defi in ctx.gatherer.defis:
+            print(f"{defi['path']} at {defi['offset']}: {defi['mod_name']}?{defi['name']} {defi['lang']} \"{defi['string']}\"")
+    elif command == "trefi":
+        for trefi in ctx.gatherer.trefis:
+            print(f"{trefi['path']} at {trefi['offset']}: {trefi['mod_name']} {trefi['mod_type']} {trefi['lang']}")
+    elif command == "symi":
+        for symi in ctx.gatherer.symis:
+            noverbtostr = lambda symi : repr(symi["noverb"]).replace(", ", ",")
+            print(f"{symi['path']} at {symi['offset']}: {symi['mod_name']}?{symi['name']} {symi['type']} noverb={noverbtostr(symi)} align={symi['align']}")
+    elif command == "sigfile":
+        for sigf in ctx.gatherer.sigfiles:
+            print(f"{sigf['path']}: name={sigf['mod_name']} type={sigf['type']} align={repr(sigf['align'])}")
+    elif command == "langfile":
+        for langf in ctx.gatherer.langfiles:
+            print(f"{langf['path']}: {langf['mod_name']} {langf['type']} {langf['lang']}")
