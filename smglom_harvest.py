@@ -120,10 +120,10 @@ class HarvestContext(object):
         self.something_was_logged = False
 
     def log(self, message, minverbosity=1, offsetstr=None, forfile = True):
-        self.something_was_logged = self.something_was_logged or \
-                self.logger.log(message, minverbosity,
+        was_logged = self.logger.log(message, minverbosity,
                         filepath=self.file if forfile else None,
                         offset=offsetstr)
+        self.something_was_logged = self.something_was_logged or was_logged
 
 class DataGatherer(object):
     """ The DataGatherer collects all the data from the files """
@@ -229,7 +229,7 @@ re_end_mhmodnl = re.compile(
 re_arg = r"(?:(?:[^\}\$]+)|(?:\$[^\$]+\$))+"
 
 re_def = re.compile(
-        r"\\(?P<start>d|D|ad)ef(?:i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>d|D|ad)ef(?P<arity>i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -251,12 +251,13 @@ re_end_gviewnl = re.compile(
         ) 
 
 re_tref = re.compile(
-        r"\\(?P<start>at|mt|t|Mt|T)ref(?:i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>at|mt|t|Mt|T)ref(?P<arity>i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
         r"(?:\s*\{(?P<arg2>" + re_arg + r")\})?"   # arg2
         r"(?:\s*\{(?P<arg3>" + re_arg + r")\})?"   # arg3
+        r"(?:\s*\{(?P<arg4>" + re_arg + r")\})?"   # arg4
         )
 
 re_begin_modsig = re.compile(
@@ -271,7 +272,7 @@ re_end_modsig = re.compile(
         )
 
 re_sym = re.compile(
-        r"\\sym(?:i|ii|iii|iv)\*?\s*"
+        r"\\sym(?P<arity>i|ii|iii|iv)\*?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -339,6 +340,25 @@ def get_align(params, name):
     else:
         return None
 
+def get_args(match, is_symi, string, ctx):
+    """ Highly specialized code - only use with great caution! """
+    possible_args = ["arg0", "arg1", "arg2", "arg3"]
+    if not is_symi:
+        possible_args.append("arg4")
+
+    args = [match.group(x) for x in possible_args]
+    args = [arg for arg in args if arg != None]
+    one_plus = ""
+    if not is_symi and match.group("start").startswith("a"):        # adefi etc.
+        one_plus = "1+"
+        args = args[1:]
+
+    arity = {"i" : 1, "ii" : 2, "iii" : 3, "iv" : 4}[match.group("arity")]
+    if len(args) != arity:
+        ctx.log(f"Arity mismatch (needs {one_plus}{arity} arguments, but found {one_plus}{len(args)}): '{match.group(0)}'",
+                2, get_file_pos_str(string, match.start()))
+    return args
+
 def harvest_sig(string, name, ctx):
     """ harvests the data from signature file content """
     if name in ["all", "localpaths"]:
@@ -361,9 +381,8 @@ def harvest_sig(string, name, ctx):
                 ctx.log(f"Require \\begin{modsig} or \\begin{gviewsig} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
-            args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3"]]
-            args = [arg for arg in args if arg != None]
 
+            args = get_args(match, True, string, ctx) 
             name = "-".join(args)
             params = get_params(match.group("params"))
             ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx)
@@ -433,10 +452,7 @@ def harvest_nl(string, name, lang, ctx):
                 continue
             params = get_params(match.group("params"))
 
-            args = [match.group(x) for x in ["arg0", "arg1", "arg2", "arg3", "arg4"]]
-            args = [arg for arg in args if arg != None]
-            if match.group("start") == "ad":    # skip first argument for adefi*
-                args = args[1:]
+            args = get_args(match, False, string, ctx)
 
             name = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)
@@ -447,6 +463,7 @@ def harvest_nl(string, name, lang, ctx):
                 ctx.log(f"Require \\begin{mhmodnl} or \\begin{gviewnl} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
+            get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_BEGIN_MHMODNL:
             isacceptablefile = True
