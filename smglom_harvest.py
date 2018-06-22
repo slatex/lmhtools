@@ -226,7 +226,7 @@ re_end_mhmodnl = re.compile(
         r"\\end\s*\{mhmodnl\}"
         )
 
-re_arg = r"(?:(?:[^\}\$]+)|(?:\$[^\$]+\$))+"
+re_arg = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
 
 re_def = re.compile(
         r"\\(?P<start>d|D|ad)ef(?P<arity>i|ii|iii|iv)s?\s*"
