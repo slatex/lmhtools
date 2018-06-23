@@ -54,7 +54,10 @@ def print_stats(gatherer):
                 verbs = 0
             else:
                 verbs = len(set([(e["mod_name"], e["name"]) for e in defi_part[(repo, lang)]]))
-            symbols_withverb = len(set([(e["mod_name"], e["name"]) for e in symi_part[repo] if e["noverb"] != "all" and lang not in e["noverb"]]))
+            if repo in symi_part:
+                symbols_withverb = len(set([(e["mod_name"], e["name"]) for e in symi_part[repo] if e["noverb"] != "all" and lang not in e["noverb"]]))
+            else:
+                symbols_withverb = 0
             suffix += frac2str(verbs, symbols_withverb)
         modsigs = 0
         gviewsigs = 0
