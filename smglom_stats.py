@@ -54,7 +54,8 @@ def print_stats(gatherer):
                 verbs = 0
             else:
                 verbs = len(set([(e["mod_name"], e["name"]) for e in defi_part[(repo, lang)]]))
-            suffix += frac2str(verbs, symbols)
+            symbols_withverb = len(set([(e["mod_name"], e["name"]) for e in symi_part[repo] if e["noverb"] != "all" and lang not in e["noverb"]]))
+            suffix += frac2str(verbs, symbols_withverb)
         modsigs = 0
         gviewsigs = 0
         aligned_modsigs = 0
@@ -78,7 +79,8 @@ def print_stats(gatherer):
     aligned_symbols = len(set([(e["mod_name"], e["name"]) for e in gatherer.symis if e["align"] and e["align"] != "noalign"]))
     for lang in langs:
         verbs = len(set([(e["mod_name"], e["name"]) for e in gatherer.defis if e["lang"] == lang]))
-        suffix += frac2str(verbs, symbols)
+        symbols_withverb = len(set([(e["mod_name"], e["name"]) for e in gatherer.symis if e["noverb"] != "all" and lang not in e["noverb"]]))
+        suffix += frac2str(verbs, symbols_withverb)
     modsigs = len([e for e in gatherer.sigfiles if e['type']=='modsig'])
     aligned_modsigs = len([e for e in gatherer.sigfiles if e['type']=='modsig' and e["align"] and e["align"] != "noalign"])
     print(f"{'TOTAL':20}" +
