@@ -28,9 +28,9 @@ class EmacsLogger(object):
             return False
         
         if filepath:
-            self.fp.write(f"{self.format_filepos(filepath, offset, True)} {message}\n")
+            self.fp.write(f"{self.format_filepos(filepath, offset, True)} {message}\n\n")
         else:
-            self.fp.write(f"{message}\n")
+            self.fp.write(f"{message}\n\n")
 
         return True
 
@@ -115,8 +115,8 @@ def check_data(gatherer, verbosity, logger):
             else:
                 for symi in symi_part[k]:
                     if symi["noverb"] == "all" or defi["lang"] in symi["noverb"]:
-                        logger.log(f"Symbol '{defi['name']}' has a verbalization, which conflicts with "
-                              f"{symi['path']} at {symi['offset']}: noverb={repr(symi['noverb'])}",
+                        logger.log(f"Symbol '{defi['name']}' has a verbalization, which conflicts with"
+                              f"\n    {logger.format_filepos(symi['path'], symi['offset'], True)} noverb={repr(symi['noverb'])}",
                               minverbosity=2, filepath=defi['path'], offset=defi['offset'])
 
 
@@ -201,7 +201,7 @@ def check_mvlang(gatherer, lang, logger):
                 continue
             if symi["noverb"] == "all" or lang in symi["noverb"]:
                 continue
-            logger.log(f"No verbalization for symbol '{symi['name']}' in '{langf['path']}'",
+            logger.log(f"No verbalization for symbol '{symi['name']}' in file\n    {logger.format_filepos(langf['path'])}",
                     filepath=symi['path'], offset=symi['offset'])
             covered.append(symi["name"])
 
