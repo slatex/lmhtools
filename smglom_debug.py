@@ -135,7 +135,7 @@ def check_data(gatherer, verbosity, logger):
     # Check if symbol was introduced several times with symi
     if verbosity >= 2:
         for symik in symi_part:
-            symis = [s for s in symi_part[symik] if s["type"] == "symi"]
+            symis = [s for s in symi_part[symik] if s["type"] == "symi" and not s["implicit"] ]
             if len(symis) > 1:
                 logger.log(f"Symbol '{symis[0]['name']}' was introduced several times in a symi:" +
                         "".join(["\n    " + logger.format_filepos(symi['path'], symi['offset']) for symi in symis]),
