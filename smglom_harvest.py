@@ -133,6 +133,7 @@ class DataGatherer(object):
         self.symis = []
         self.sigfiles = []
         self.langfiles = []
+        self.modules = []
         self.repos = []
 
     def push_repo(self, namespace, ctx):
@@ -151,6 +152,14 @@ class DataGatherer(object):
             "mod_name" : ctx.mod_name,
         })
 
+    def push_module(self, ctx):
+        assert ctx.mod_type == "module"
+        self.modules.append({
+            "path" : ctx.file,
+            "repo" : ctx.repo,
+            "mod_name" : ctx.mod_name,
+        })
+
     def push_langfile(self, ctx):
         assert ctx.mod_type in ["mhmodnl", "gviewnl"]
         self.langfiles.append({
@@ -162,7 +171,7 @@ class DataGatherer(object):
         })
 
     def push_defi(self, name, string, offset_str, ctx):
-        assert ctx.mod_type == "mhmodnl"
+        assert ctx.mod_type in ["mhmodnl", "module"]
         entry = {
                 "mod_name" : ctx.mod_name,
                 "repo" : ctx.repo,
@@ -174,8 +183,8 @@ class DataGatherer(object):
             }
         self.defis.append(entry)
 
-    def push_symi(self, name, offset_str, type_, noverb, align, ctx):
-        assert ctx.mod_type == "modsig"
+    def push_symi(self, name, offset_str, type_, noverb, align, ctx, implicit=False):
+        assert ctx.mod_type in ["modsig", "module"]
         assert type_ in ["symi", "symdef"]
         entry = {
                 "mod_name" : ctx.mod_name,
@@ -186,6 +195,7 @@ class DataGatherer(object):
                 "type" : type_,
                 "noverb" : noverb,
                 "align" : align,
+                "implicit" : implicit,
             }
         self.symis.append(entry)
 
@@ -213,6 +223,8 @@ TOKEN_SYM            = 8
 TOKEN_BEGIN_GVIEWSIG = 9
 TOKEN_END_GVIEWSIG   = 10
 TOKEN_SYMDEF         = 11
+TOKEN_BEGIN_MODULE   = 12
+TOKEN_END_MODULE     = 13
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -303,6 +315,16 @@ re_namespace = re.compile(
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
+re_begin_module = re.compile(
+        r"\\begin\s*"
+        r"\{module\}\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        )
+
+re_end_module = re.compile(
+        r"\\end\s*\{module\}"
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -316,6 +338,8 @@ regexes = [
         (re_begin_gviewsig, TOKEN_BEGIN_GVIEWSIG),
         (re_end_gviewsig, TOKEN_END_GVIEWSIG),
         (re_symdef, TOKEN_SYMDEF),
+        (re_begin_module, TOKEN_BEGIN_MODULE),
+        (re_end_module, TOKEN_END_MODULE),
         ]
 
 def get_noverb(param_dict):
@@ -361,14 +385,9 @@ def get_args(match, is_symi, string, ctx):
 
 def harvest_sig(string, name, ctx):
     """ harvests the data from signature file content """
-    if name in ["all", "localpaths"]:
-        # ctx.log(f"Skipping file (name '{name}' in blacklist)", 4)
-        return
-    
-    # Check module type
     tokens = parse(string, regexes)
     if len(tokens) == 0:
-        ctx.log("No matches found in file", 2)
+        ctx.log("No matches found in file", 3)
         return
     
     required_end_sig = None
@@ -383,9 +402,9 @@ def harvest_sig(string, name, ctx):
                 continue
 
             args = get_args(match, True, string, ctx) 
-            name = "-".join(args)
+            tname = "-".join(args)
             params = get_params(match.group("params"))
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx)
+            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, tname), ctx)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
@@ -393,8 +412,8 @@ def harvest_sig(string, name, ctx):
                 continue
             params = get_params(match.group("params"))
             arg = match.group("arg0")
-            name = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params, name), ctx)
+            tname = params["name"] if "name" in params else arg
+            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params, tname), ctx)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -430,15 +449,9 @@ def harvest_sig(string, name, ctx):
 
 def harvest_nl(string, name, lang, ctx):
     """ harvests the data from file content """
-
-    if name == ["all", "localpaths"]:
-        # ctx.log(f"Skipping file (name '{name}' in blacklist)", 4)
-        return
-    
-    # Check module type
     tokens = parse(string, regexes)
     if len(tokens) == 0:
-        ctx.log("No matches found in file", 2)
+        ctx.log("No matches found in file", 3)
         return
 
     required_end_module = None
@@ -454,10 +467,10 @@ def harvest_nl(string, name, lang, ctx):
 
             args = get_args(match, False, string, ctx)
 
-            name = params["name"] if "name" in params else "-".join(args)
+            tname = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)
 
-            ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx)
+            ctx.gatherer.push_defi(tname, val, get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
                 ctx.log(f"Require \\begin{mhmodnl} or \\begin{gviewnl} before token: '{match.group(0)}'",
@@ -500,6 +513,74 @@ def harvest_nl(string, name, lang, ctx):
 
     ctx.gatherer.push_langfile(ctx)
 
+def harvest_mono(string, ctx):
+     """ harvests the data from file content """
+ 
+     # Check module type
+     tokens = parse(string, regexes)
+     if len(tokens) == 0:
+         ctx.log("No matches found in file", 2)
+         return
+ 
+     in_module = False
+ 
+     for (match, token_type) in tokens:
+         if token_type == TOKEN_DEF:
+             if not in_module:
+                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+                         1, get_file_pos_str(string, match.start()))
+                 continue
+             params = get_params(match.group("params"))
+ 
+             args = get_args(match, False, string, ctx)
+ 
+             name = params["name"] if "name" in params else "-".join(args)
+             val  = " ".join(args)
+ 
+             ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx)
+             ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx, implicit=True)
+         elif token_type == TOKEN_TREF:
+             if not in_module:
+                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+                         1, get_file_pos_str(string, match.start()))
+                 continue
+             get_args(match, False, string, ctx)    # print error messages for arity violations
+             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+         elif token_type == TOKEN_BEGIN_MODULE:
+             in_module = True
+             ctx.lang = "?"
+             params = get_params(match.group("params"))
+             if "id" in params:
+                 ctx.mod_name = params["id"]
+             else:
+                 ctx.log(f"No name provided for module - skipping rest of file", 2)
+                 return
+             ctx.mod_type = "module"
+         elif token_type == TOKEN_END_MODULE:
+             ctx.gatherer.push_module(ctx)
+             in_module = False
+         else:
+             if token_type != TOKEN_SYMDEF:
+                 ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+ 
+     if in_module:
+         ctx.log("\\end{module} missing", 1)
+         return
+
+def identify_file(content):
+    match = identify_file.regex.search(content)
+    if not match:
+        return None
+    mod = match.group("mod")
+    if mod == "module":
+        return "mono"
+    elif mod in ["modsig", "gviewsig"]:
+        return "sig"
+    assert mod in ["mhmodnl", "gviewnl"]
+    return "nl"
+
+identify_file.regex = re.compile(r"\\begin\s*\{(?P<mod>(module)|(modsig)|(mhmodnl)|(gviewnl)|(gviewsig))\}")
+
 def harvest_repo_metadata(repo_directory, ctx):
     preamble_path = os.path.join(repo_directory, "lib", "preamble.tex")
     namespace = ""
@@ -514,24 +595,40 @@ def harvest_repo_metadata(repo_directory, ctx):
 def gather_data_for_repo(repo_directory, ctx):
     harvest_repo_metadata(repo_directory, ctx)
     dir_path = os.path.join(repo_directory, "source")
-    for file_name in os.listdir(dir_path):
-        m = gather_data_for_repo.file_regex.match(file_name)
-        if m == None:
-            continue
-        name = m.group("name")
-        lang = m.group("lang")
-        file_path = os.path.join(dir_path, f"{name}.{lang}.tex" if lang else f"{name}.tex")
-        with open(file_path, "r") as fp:
-            ctx.file = file_path
-            try:
-                string = preprocess_string(fp.read())
-                if lang:
-                    harvest_nl(string, name, lang, ctx)
-                else:
-                    harvest_sig(string, name, ctx)
-            except Exception as ex:
-                ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
+    for root, dirs, files in os.walk(dir_path):
+        for file_name in files:
+            m = gather_data_for_repo.file_regex.match(file_name)
+            if m == None:
                 continue
+            name = m.group("name")
+            lang = m.group("lang")
+            file_path = os.path.join(root, f"{name}.{lang}.tex" if lang else f"{name}.tex")
+            if name in ["all", "localpaths"]:
+                continue
+
+            with open(file_path, "r") as fp:
+                ctx.file = file_path
+                try:
+                    string = preprocess_string(fp.read())
+                    file_type = identify_file(string)
+                    if not file_type:
+                        # ctx.log("Failed to identify type of file (monolingual/nl/sig) - skipping it", 3)
+                        continue
+                    if lang:
+                        if file_type != "nl":
+                            ctx.log("Doesn't appear to be a language file - skipping it", 2)
+                            continue
+                        harvest_nl(string, name, lang, ctx)
+                    elif file_type == "sig":
+                        harvest_sig(string, name, ctx)
+                    elif file_type == "mono":
+                        harvest_mono(string, ctx)
+                    else:
+                        assert file_type == "nl" and not lang
+                        ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
+                except Exception as ex:
+                    ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
+                    continue
 
 
 gather_data_for_repo.file_regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")

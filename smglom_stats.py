@@ -31,7 +31,7 @@ def frac2str(a, b):
     return f"{s+'%':>9}"
 
 def print_stats(gatherer):
-    repos = unique_list([e["repo"] for e in gatherer.sigfiles + gatherer.langfiles])
+    repos = unique_list([e["repo"] for e in gatherer.sigfiles + gatherer.langfiles + gatherer.modules])
     langs = unique_list([e["lang"] for e in gatherer.langfiles])
 
     sigf_part = partition(gatherer.sigfiles, lambda e : (e["repo"]))
