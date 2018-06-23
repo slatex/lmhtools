@@ -107,7 +107,7 @@ Note that several directories can be passed to the script.
 
 `-v0` sets the verbosity to 0, which suppresses errors during data gathering.
 Note that errors can skew the statistics. For example, the percentages for each language
-indicate what percentage of symbols has a verbalization in that language.
+indicate what percentage of symbols has a verbalization in that language (ignoring symbols with `noverb` for that language).
 This can be more than 100% if there are a lot of verbalizations for symbols
 that are not declared in signature files.
 
