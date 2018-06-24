@@ -523,11 +523,12 @@ def harvest_mono(string, ctx):
          return
  
      in_module = False
+     in_named_module = False
  
      for (match, token_type) in tokens:
          if token_type == TOKEN_DEF:
-             if not in_module:
-                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+             if not in_named_module:
+                 ctx.log("Require \\begin{module}[id=...] before token: '" + match.group(0) + "'",
                          1, get_file_pos_str(string, match.start()))
                  continue
              params = get_params(match.group("params"))
@@ -547,21 +548,28 @@ def harvest_mono(string, ctx):
              get_args(match, False, string, ctx)    # print error messages for arity violations
              ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
          elif token_type == TOKEN_BEGIN_MODULE:
+             if in_module:
+                 ctx.log("Nested modules are not supported",
+                         1, get_file_pos_str(string, match.start()))
              in_module = True
              ctx.lang = "?"
              params = get_params(match.group("params"))
              if "id" in params:
                  ctx.mod_name = params["id"]
+                 in_named_module = True
              else:
-                 ctx.log(f"No name provided for module - skipping rest of file", 2)
-                 return
+                 ctx.mod_name = "?"
+                 in_named_module = False
              ctx.mod_type = "module"
          elif token_type == TOKEN_END_MODULE:
-             ctx.gatherer.push_module(ctx)
+             if in_named_module:
+                 ctx.gatherer.push_module(ctx)
              in_module = False
+             in_named_module = False
          else:
-             if token_type != TOKEN_SYMDEF:
-                 ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+             if token_type == TOKEN_SYMDEF and in_named_module:
+                 continue
+             ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
  
      if in_module:
          ctx.log("\\end{module} missing", 1)
