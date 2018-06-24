@@ -514,66 +514,84 @@ def harvest_nl(string, name, lang, ctx):
     ctx.gatherer.push_langfile(ctx)
 
 def harvest_mono(string, ctx):
-     """ harvests the data from file content """
- 
-     # Check module type
-     tokens = parse(string, regexes)
-     if len(tokens) == 0:
-         ctx.log("No matches found in file", 2)
-         return
- 
-     in_module = False
-     in_named_module = False
- 
-     for (match, token_type) in tokens:
-         if token_type == TOKEN_DEF:
-             if not in_named_module:
-                 ctx.log("Require \\begin{module}[id=...] before token: '" + match.group(0) + "'",
-                         1, get_file_pos_str(string, match.start()))
-                 continue
-             params = get_params(match.group("params"))
- 
-             args = get_args(match, False, string, ctx)
- 
-             name = params["name"] if "name" in params else "-".join(args)
-             val  = " ".join(args)
- 
-             ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx)
-             ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx, implicit=True)
-         elif token_type == TOKEN_TREF:
-             if not in_module:
-                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
-                         1, get_file_pos_str(string, match.start()))
-                 continue
-             get_args(match, False, string, ctx)    # print error messages for arity violations
-             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
-         elif token_type == TOKEN_BEGIN_MODULE:
-             if in_module:
-                 ctx.log("Nested modules are not supported",
-                         1, get_file_pos_str(string, match.start()))
-             in_module = True
-             ctx.lang = "?"
-             params = get_params(match.group("params"))
-             if "id" in params:
-                 ctx.mod_name = params["id"]
-                 in_named_module = True
-             else:
-                 ctx.mod_name = "?"
-                 in_named_module = False
-             ctx.mod_type = "module"
-         elif token_type == TOKEN_END_MODULE:
-             if in_named_module:
-                 ctx.gatherer.push_module(ctx)
-             in_module = False
-             in_named_module = False
-         else:
-             if token_type == TOKEN_SYMDEF and in_named_module:
-                 continue
-             ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
- 
-     if in_module:
-         ctx.log("\\end{module} missing", 1)
-         return
+    """ harvests the data from file content """
+
+    # Check module type
+    tokens = parse(string, regexes)
+    if len(tokens) == 0:
+        ctx.log("No matches found in file", 2)
+        return
+
+    in_module = False
+    in_named_module = False
+
+    for (match, token_type) in tokens:
+        if token_type == TOKEN_DEF:
+            if not in_named_module:
+                ctx.log("Require \\begin{module}[id=...] before token: '" + match.group(0) + "'",
+                        1, get_file_pos_str(string, match.start()))
+                continue
+            params = get_params(match.group("params"))
+
+            args = get_args(match, False, string, ctx)
+
+            name = params["name"] if "name" in params else "-".join(args)
+            val  = " ".join(args)
+
+            ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx, implicit=True)
+        elif token_type == TOKEN_TREF:
+            if not in_module:
+                ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+                        1, get_file_pos_str(string, match.start()))
+                continue
+            get_args(match, False, string, ctx)    # print error messages for arity violations
+            ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+        elif token_type == TOKEN_BEGIN_MODULE:
+            if in_module:
+                ctx.log("Nested modules are not supported",
+                        1, get_file_pos_str(string, match.start()))
+            in_module = True
+            ctx.lang = "?"
+            params = get_params(match.group("params"))
+            if "id" in params:
+                ctx.mod_name = params["id"]
+                in_named_module = True
+            else:
+                ctx.mod_name = "?"
+                in_named_module = False
+            ctx.mod_type = "module"
+        elif token_type == TOKEN_END_MODULE:
+            if in_named_module:
+                ctx.gatherer.push_module(ctx)
+            in_module = False
+            in_named_module = False
+        else:
+            if token_type == TOKEN_SYMDEF and in_named_module:
+                continue
+            ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+
+    if in_module:
+        ctx.log("\\end{module} missing", 1)
+        return
+
+def harvest_trefi(string, ctx):
+    """ harvests the trefis from unidentified file content """
+
+    # Check module type
+    tokens = parse(string, regexes)
+    ctx.mod_name = "?"
+    ctx.mod_type = "?"
+
+    for (match, token_type) in tokens:
+        if token_type == TOKEN_TREF:
+            #ctx.log("Warning: Found trefi token in unidentified file",
+            #        3, get_file_pos_str(string, match.start()))
+            get_args(match, False, string, ctx)    # print error messages for arity violations
+            ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+        else:
+            ctx.log(f"Unexpected token in unidentified file: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
+    
 
 def identify_file(content):
     match = identify_file.regex.search(content)
@@ -620,7 +638,7 @@ def gather_data_for_repo(repo_directory, ctx):
                     string = preprocess_string(fp.read())
                     file_type = identify_file(string)
                     if not file_type:
-                        # ctx.log("Failed to identify type of file (monolingual/nl/sig) - skipping it", 3)
+                        harvest_trefi(string, ctx)
                         continue
                     if lang:
                         if file_type != "nl":
