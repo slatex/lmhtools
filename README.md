@@ -69,7 +69,7 @@ Other issues that are not really considered errors can be shown with extra comma
 
 Example call:
 ```bash
-./smglom_debug.py -mvx -v2 ../..
+./smglom_debug.py -mv -v2 ../..
 ```
 
 `-v2` specifies the verbosity.
