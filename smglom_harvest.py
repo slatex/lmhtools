@@ -170,7 +170,7 @@ class DataGatherer(object):
             "lang" : ctx.lang,
         })
 
-    def push_defi(self, name, string, offset_str, ctx):
+    def push_defi(self, name, string, offset_str, ctx, params):
         assert ctx.mod_type in ["mhmodnl", "module"]
         entry = {
                 "mod_name" : ctx.mod_name,
@@ -180,10 +180,11 @@ class DataGatherer(object):
                 "string" : string,
                 "offset" : offset_str,
                 "path" : ctx.file,
+                "params" : params,
             }
         self.defis.append(entry)
 
-    def push_symi(self, name, offset_str, type_, noverb, align, ctx, implicit=False):
+    def push_symi(self, name, offset_str, type_, noverb, align, ctx, params, implicit=False):
         assert ctx.mod_type in ["modsig", "module"]
         assert type_ in ["symi", "symdef"]
         entry = {
@@ -195,6 +196,7 @@ class DataGatherer(object):
                 "type" : type_,
                 "noverb" : noverb,
                 "align" : align,
+                "params" : params,
                 "implicit" : implicit,
             }
         self.symis.append(entry)
@@ -404,7 +406,7 @@ def harvest_sig(string, name, ctx):
             args = get_args(match, True, string, ctx) 
             tname = "-".join(args)
             params = get_params(match.group("params"))
-            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, tname), ctx)
+            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, tname), ctx, params)
         elif token_type == TOKEN_SYMDEF:
             if required_end_sig == None:
                 ctx.log("Require \\begin{modsig} or \\begin{gviewsig} before token: " + f"'{match.group(0)}'",
@@ -413,7 +415,7 @@ def harvest_sig(string, name, ctx):
             params = get_params(match.group("params"))
             arg = match.group("arg0")
             tname = params["name"] if "name" in params else arg
-            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params, tname), ctx)
+            ctx.gatherer.push_symi(tname, get_file_pos_str(string, match.start()), "symdef", get_noverb(params), get_align(params, tname), ctx, params)
         elif token_type == TOKEN_BEGIN_MODSIG:
             isacceptablefile = True
             required_end_sig = TOKEN_END_MODSIG
@@ -470,7 +472,7 @@ def harvest_nl(string, name, lang, ctx):
             tname = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)
 
-            ctx.gatherer.push_defi(tname, val, get_file_pos_str(string, match.start()), ctx)
+            ctx.gatherer.push_defi(tname, val, get_file_pos_str(string, match.start()), ctx, params)
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
                 ctx.log(f"Require \\begin{mhmodnl} or \\begin{gviewnl} before token: '{match.group(0)}'",
@@ -538,8 +540,8 @@ def harvest_mono(string, ctx):
             name = params["name"] if "name" in params else "-".join(args)
             val  = " ".join(args)
 
-            ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx)
-            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx, implicit=True)
+            ctx.gatherer.push_defi(name, val, get_file_pos_str(string, match.start()), ctx, params)
+            ctx.gatherer.push_symi(name, get_file_pos_str(string, match.start()), "symi", get_noverb(params), get_align(params, name), ctx, params, implicit=True)
         elif token_type == TOKEN_TREF:
             if not in_module:
                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
