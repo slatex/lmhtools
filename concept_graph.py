@@ -6,7 +6,23 @@
 import sys
 import re
 import os
+import smglom_harvest as harvest
 
+# def identify_file(content):
+#     match = identify_file.regex.search(content)
+#     if not match:
+#         return None
+#     mod = match.group("mod")
+#     if mod == "module":
+#         return "mono"
+#     elif mod in ["modsig", "gviewsig"]:
+#         return "sig"
+#     elif mod == "omgroup":
+#         return "omgroup"
+#     assert mod in ["mhmodnl", "gviewnl"]
+#     return "nl"
+# 
+# identify_file.regex = re.compile(r"\\begin\s*\{(?P<mod>(module)|(modsig)|(mhmodnl)|(gviewnl)|(gviewsig)|(omgroup))\}")
 
 def parse(string, regexes):
     """
@@ -173,6 +189,8 @@ def recurse_file(context):
             else:
                 context.throw(f"Unexpected token: '{match.group(0)}'")
                 i += 1
+        else:
+            pass
 
     context.pop()
 
@@ -213,6 +231,15 @@ for entry in context.mhinputrefs:
         omgroup2files[key].append((entry[3], entry[4]))
 
 omgroup2files[(root_repo, root_doc, "root", "AI Lecture")] = [(root_repo, root_doc)]
+
+
+potential_modules = []
+for v in omgroup2files.values():
+    if v not in file2omgroups:
+        potential_modules.append(v)
+
+
+
 
 graph = {"nodes" : [], "edges" : []}
 

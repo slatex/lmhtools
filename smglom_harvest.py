@@ -577,8 +577,8 @@ def harvest_mono(string, ctx):
         ctx.log("\\end{module} missing", 1)
         return
 
-def harvest_trefi(string, ctx):
-    """ harvests the trefis from unidentified file content """
+def harvest_text(string, ctx):
+    """ harvests the trefis etc. from unidentified file content """
 
     # Check module type
     tokens = parse(string, regexes)
@@ -620,46 +620,49 @@ def harvest_repo_metadata(repo_directory, ctx):
                 namespace = match.group("arg")
     ctx.gatherer.push_repo(namespace, ctx)
 
+def harvest_file(root, file_name):
+    m = harvest_file.file_regex.match(file_name)
+    if m == None:
+        return
+    name = m.group("name")
+    lang = m.group("lang")
+    file_path = os.path.join(root, f"{name}.{lang}.tex" if lang else f"{name}.tex")
+    if name in ["all", "localpaths"]:
+        return
+
+    with open(file_path, "r") as fp:
+        ctx.file = file_path
+        try:
+            string = preprocess_string(fp.read())
+            file_type = identify_file(string)
+            if not file_type:
+                harvest_text(string, ctx)
+                return
+            if lang:
+                if file_type != "nl":
+                    ctx.log("Doesn't appear to be a language file - skipping it", 2)
+                    return
+                harvest_nl(string, name, lang, ctx)
+            elif file_type == "sig":
+                harvest_sig(string, name, ctx)
+            elif file_type == "mono":
+                harvest_mono(string, ctx)
+            else:
+                assert file_type == "nl" and not lang
+                ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
+        except Exception as ex:
+            ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
+            return
+
+harvest_file.file_regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")
+
+
 def gather_data_for_repo(repo_directory, ctx):
     harvest_repo_metadata(repo_directory, ctx)
     dir_path = os.path.join(repo_directory, "source")
     for root, dirs, files in os.walk(dir_path):
         for file_name in files:
-            m = gather_data_for_repo.file_regex.match(file_name)
-            if m == None:
-                continue
-            name = m.group("name")
-            lang = m.group("lang")
-            file_path = os.path.join(root, f"{name}.{lang}.tex" if lang else f"{name}.tex")
-            if name in ["all", "localpaths"]:
-                continue
-
-            with open(file_path, "r") as fp:
-                ctx.file = file_path
-                try:
-                    string = preprocess_string(fp.read())
-                    file_type = identify_file(string)
-                    if not file_type:
-                        harvest_trefi(string, ctx)
-                        continue
-                    if lang:
-                        if file_type != "nl":
-                            ctx.log("Doesn't appear to be a language file - skipping it", 2)
-                            continue
-                        harvest_nl(string, name, lang, ctx)
-                    elif file_type == "sig":
-                        harvest_sig(string, name, ctx)
-                    elif file_type == "mono":
-                        harvest_mono(string, ctx)
-                    else:
-                        assert file_type == "nl" and not lang
-                        ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
-                except Exception as ex:
-                    ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
-                    continue
-
-
-gather_data_for_repo.file_regex = re.compile(r"^(?P<name>[a-zA-Z0-9-]+)(\.(?P<lang>[a-zA-Z]+))?\.tex$")
+            harvest_file(root, file_name)
 
 def gather_data_for_all_repos(directory, ctx):
     """ recursively finds git repos and calls gather_data_for_all_repos on them """
