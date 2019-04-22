@@ -24,6 +24,10 @@ import smglom_harvest as harvest
 # 
 # identify_file.regex = re.compile(r"\\begin\s*\{(?P<mod>(module)|(modsig)|(mhmodnl)|(gviewnl)|(gviewsig)|(omgroup))\}")
 
+
+
+### PART 1 : PARSING OMGROUPS AND MHINPUTREFS
+
 def parse(string, regexes):
     """
     Assumes that regexes is a list of pairs (regex, token_type).
@@ -229,17 +233,54 @@ for entry in context.mhinputrefs:
         if key not in omgroup2files:
             omgroup2files[key] = []
         omgroup2files[key].append((entry[3], entry[4]))
+    else:
+        print("Skipping:", repr(entry))
 
 omgroup2files[(root_repo, root_doc, "root", "AI Lecture")] = [(root_repo, root_doc)]
 
 
+blocked_nodes = []
 potential_modules = []
 for v in omgroup2files.values():
-    if v not in file2omgroups:
-        potential_modules.append(v)
+    for e in v:
+        if e not in file2omgroups:
+            e2 = os.path.join(mathhub, e[0], "source", e[1]) + ".tex"
+            potential_modules.append(e2)
+            blocked_nodes.append(e2)
+
+
+### PART 2 : PARSING MODULES
+
+gatherer = harvest.DataGatherer()
+logger = harvest.SimpleLogger(2)
+potential_nodes = []
+potential_edges = []
+while potential_modules:
+    context = harvest.HarvestContext(logger, gatherer)
+    for pm in potential_modules:
+        context.repo = "/".join(pm.split("/")[:mathhub.count("/")+3]) # TODO: platform independence
+        path = pm
+        root, filename = os.path.split(path)
+        try:
+            harvest.harvest_file(root, filename, context)
+        except FileNotFoundError:
+            print("couldn't find '" + path + "'")
+    for mod in gatherer.modules:
+        node = mod["path"]
+        if node not in potential_nodes:
+            potential_nodes.append(node)
+
+    potential_modules = []
+    for imp in gatherer.importmhmodules:
+        destnode = imp["dest_path"]
+        if destnode not in blocked_nodes:
+            blocked_nodes.append(destnode)
+            potential_modules.append(destnode)
+        potential_edges.append((imp["path"], destnode))
 
 
 
+### PART 3 : GRAPH GENERATION
 
 graph = {"nodes" : [], "edges" : []}
 
@@ -260,7 +301,38 @@ for omgroup in omgroup2files.keys():
                     "to" : "?".join([omg2[0], omg2[1], str(omg2[2])]),
                     "label" : "mhincluderef",
                     "url" : "None" })
+        else:
+            path = os.path.join(mathhub, f[0], "source", f[1]) + ".tex"
+            node = path
+            if node in potential_nodes:
+                graph["edges"].append({
+                    "id" : "?".join([omgroup[0],omgroup[1],node[0],node[1]]),
+                    "style" : "include",
+                    "from" : "?".join([omgroup[0],omgroup[1],str(omgroup[2])]),
+                    "to" : node,
+                    "label" : "mhincluderef",
+                    "url" : "None" })
+            
+
+for node in potential_nodes:
+    graph["nodes"].append({
+            "id" : node,
+            "style" : "model",
+            "label" : os.path.split(node)[1],
+            "url" : "None"
+        })
+
+for start, end in potential_edges:
+    if end in potential_nodes:
+        graph["edges"].append({
+                "id" : start + "?" + end,
+                "style" : "view",
+                "from" : start,
+                "to" : end,
+                "label" : "usemhmodule",
+                "url" : "None" })
 
 import json
 print(json.dumps(graph, indent=4))
-
+print(potential_nodes)
+print(potential_edges)

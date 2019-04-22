@@ -135,6 +135,7 @@ class DataGatherer(object):
         self.langfiles = []
         self.modules = []
         self.repos = []
+        self.importmhmodules = []
 
     def push_repo(self, namespace, ctx):
         self.repos.append({
@@ -213,6 +214,17 @@ class DataGatherer(object):
             }
         )
 
+    def push_importmhmodule(self, repo, file_, ctx):
+        self.importmhmodules.append(
+            {
+                "mod_name" : ctx.mod_name,
+                "repo" : ctx.repo,
+                "path" : ctx.file,
+                "dest_repo" : repo,
+                "dest_path" : file_,
+            }
+        )
+
 TOKEN_BEGIN_MHMODNL  = 0
 TOKEN_END_MHMODNL    = 1
 TOKEN_DEF            = 2
@@ -227,6 +239,7 @@ TOKEN_END_GVIEWSIG   = 10
 TOKEN_SYMDEF         = 11
 TOKEN_BEGIN_MODULE   = 12
 TOKEN_END_MODULE     = 13
+TOKEN_IMPORTMHMODULE = 14
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -327,6 +340,12 @@ re_end_module = re.compile(
         r"\\end\s*\{module\}"
         )
 
+re_importmhmodule = re.compile(
+        r"\\(importmhmodule|usemhmodule)\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -342,6 +361,7 @@ regexes = [
         (re_symdef, TOKEN_SYMDEF),
         (re_begin_module, TOKEN_BEGIN_MODULE),
         (re_end_module, TOKEN_END_MODULE),
+        (re_importmhmodule, TOKEN_IMPORTMHMODULE),
         ]
 
 def get_noverb(param_dict):
@@ -549,6 +569,21 @@ def harvest_mono(string, ctx):
                 continue
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+        elif token_type == TOKEN_IMPORTMHMODULE:
+            if not in_module:
+                ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+                        1, get_file_pos_str(string, match.start()))
+                continue
+            params = get_params(match.group("params"))
+            repo = ctx.repo
+            if "repo" in params:
+                repo = params["repo"]
+            file_name = match.group("arg") + ".tex"
+            if "path" in params:
+                path = os.path.join(repo, "source", params["path"]) + ".tex"
+            else:
+                path = os.path.join(os.path.split(ctx.file)[0], file_name)
+            ctx.gatherer.push_importmhmodule(repo, path, ctx)
         elif token_type == TOKEN_BEGIN_MODULE:
             if in_module:
                 ctx.log("Nested modules are not supported",
@@ -620,7 +655,7 @@ def harvest_repo_metadata(repo_directory, ctx):
                 namespace = match.group("arg")
     ctx.gatherer.push_repo(namespace, ctx)
 
-def harvest_file(root, file_name):
+def harvest_file(root, file_name, ctx):
     m = harvest_file.file_regex.match(file_name)
     if m == None:
         return
@@ -662,7 +697,7 @@ def gather_data_for_repo(repo_directory, ctx):
     dir_path = os.path.join(repo_directory, "source")
     for root, dirs, files in os.walk(dir_path):
         for file_name in files:
-            harvest_file(root, file_name)
+            harvest_file(root, file_name, ctx)
 
 def gather_data_for_all_repos(directory, ctx):
     """ recursively finds git repos and calls gather_data_for_all_repos on them """
