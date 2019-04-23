@@ -342,7 +342,7 @@ re_end_module = re.compile(
         )
 
 re_importmhmodule = re.compile(
-        r"\\(importmhmodule|usemhmodule)\s*"
+        r"\\importmhmodule\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )

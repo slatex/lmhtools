@@ -8,23 +8,6 @@ import re
 import os
 import smglom_harvest as harvest
 
-# def identify_file(content):
-#     match = identify_file.regex.search(content)
-#     if not match:
-#         return None
-#     mod = match.group("mod")
-#     if mod == "module":
-#         return "mono"
-#     elif mod in ["modsig", "gviewsig"]:
-#         return "sig"
-#     elif mod == "omgroup":
-#         return "omgroup"
-#     assert mod in ["mhmodnl", "gviewnl"]
-#     return "nl"
-# 
-# identify_file.regex = re.compile(r"\\begin\s*\{(?P<mod>(module)|(modsig)|(mhmodnl)|(gviewnl)|(gviewsig)|(omgroup))\}")
-
-
 
 ### PART 1 : PARSING OMGROUPS AND MHINPUTREFS
 
@@ -38,31 +21,6 @@ def parse(string, regexes):
     for (regex, token_type) in regexes:
         tokens += [(match, token_type) for match in re.finditer(regex, string)]
     return sorted(tokens, key = lambda e : e[0].start())
-
-def get_params(param_str):
-    """ returns dictionary of comma-separated key=value pairs """
-    if param_str == None:
-        return { }
-
-    return {
-            param.group("key") : param.group("val")
-                for param in re.finditer(get_params.re_param, param_str)
-        }
-
-
-def preprocess_string(string):
-    """ removes comment lines, but keeps linebreaks to maintain line numbers
-        TODO: Implement this in a cleaner way!
-    """
-    s = re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
-    while s != string:
-        string = s
-        s = re.sub("(^|\n)[\t ]*\%[^\n]*\n", "\\1\n", string)
-    return string
-
-get_params.re_param = re.compile(
-        r"(?P<key>[a-zA-Z0-9_-]+)"
-        r"(?:=(?P<val>(?:[^\{\},]+)|(?:\{[^\{\}]+\})))?")
 
 
 
@@ -136,7 +94,7 @@ regexes = [
 def recurse_omgroup(context, i, tokens):
     (match, token_type) = tokens[i]
     assert token_type == TOKEN_BEGIN_OMGROUP
-    params = get_params(match.group("params"))
+    params = harvest.get_params(match.group("params"))
     if "id" in params:
         id_ = params["id"]
     else:
@@ -183,7 +141,7 @@ def recurse_file(context):
         context.pop()
         return
     with open(context.get_path()) as fp:
-        string = preprocess_string(fp.read())
+        string = harvest.preprocess_string(fp.read())
         tokens = parse(string, regexes)
         i = 0
         while i < len(tokens):
