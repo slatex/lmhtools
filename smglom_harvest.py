@@ -106,7 +106,7 @@ class HarvestContext(object):
     """ The HarvestContext keeps (among other things) data about 'what' is currently processed.
         This includes things like the current repository, file name, ...
         It also has a reference to the DataGatherer. """
-    def __init__(self, logger, gatherer):
+    def __init__(self, logger, gatherer, mathhub_path = None):
 
         self.logger = logger
         self.gatherer = gatherer
@@ -116,6 +116,7 @@ class HarvestContext(object):
         self.repo = None
         self.lang = None
         self.file = None
+        self.mathhub_path = mathhub_path
 
         self.something_was_logged = False
 
@@ -544,7 +545,7 @@ def harvest_mono(string, ctx):
         ctx.log("No matches found in file", 2)
         return
 
-    in_module = False
+    in_module = 0
     in_named_module = False
 
     for (match, token_type) in tokens:
@@ -576,8 +577,8 @@ def harvest_mono(string, ctx):
                 continue
             params = get_params(match.group("params"))
             repo = ctx.repo
-            if "repo" in params:
-                repo = params["repo"]
+            if "repos" in params:
+                repo = os.path.join(ctx.mathhub_path, params["repos"])
             file_name = match.group("arg") + ".tex"
             if "path" in params:
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
@@ -586,9 +587,12 @@ def harvest_mono(string, ctx):
             ctx.gatherer.push_importmhmodule(repo, path, ctx)
         elif token_type == TOKEN_BEGIN_MODULE:
             if in_module:
-                ctx.log("Nested modules are not supported",
-                        1, get_file_pos_str(string, match.start()))
-            in_module = True
+                ctx.log("Nested modules are not yet fully supported",
+                        2, get_file_pos_str(string, match.start()))
+                in_module += 1
+                continue
+
+            in_module += 1
             ctx.lang = "?"
             params = get_params(match.group("params"))
             if "id" in params:
@@ -599,10 +603,10 @@ def harvest_mono(string, ctx):
                 in_named_module = False
             ctx.mod_type = "module"
         elif token_type == TOKEN_END_MODULE:
-            if in_named_module:
+            in_module -= 1
+            if in_module == 0 and in_named_module:
                 ctx.gatherer.push_module(ctx)
-            in_module = False
-            in_named_module = False
+                in_named_module = False
         else:
             if token_type == TOKEN_SYMDEF and in_named_module:
                 continue

@@ -256,7 +256,7 @@ logger = harvest.SimpleLogger(2)
 potential_nodes = []
 potential_edges = []
 while potential_modules:
-    context = harvest.HarvestContext(logger, gatherer)
+    context = harvest.HarvestContext(logger, gatherer, mathhub)
     for pm in potential_modules:
         context.repo = "/".join(pm.split("/")[:mathhub.count("/")+3]) # TODO: platform independence
         path = pm
@@ -334,5 +334,3 @@ for start, end in potential_edges:
 
 import json
 print(json.dumps(graph, indent=4))
-print(potential_nodes)
-print(potential_edges)
