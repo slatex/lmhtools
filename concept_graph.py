@@ -156,10 +156,167 @@ def recurse_file(context):
 
     context.pop()
 
+### PART 2 : COLLECTING GRAPH DATA
+
+class Graph(object):
+    def __init__(self):
+        # values are dictionaries for extra info
+        self.omgroup_nodes = {}    # (file, title) : { }
+        self.omgroup_edges = {}
+        self.module_nodes = {}
+        self.module_edges = {}
+        self.omgroup2module_edges = {}
+
+def add_omgroup_data(mathhub, root_repo, root_doc, graph):
+    # gather data
+    context = Context(mathhub, root_repo, root_doc)
+    recurse_file(context)
+
+    # process data
+    file2omgroups = {}
+    for entry in context.file2mod:
+        if entry[4] == "omgroup":
+            key = (entry[0], entry[1])
+            if key not in file2omgroups:
+                file2omgroups[key] = []
+            file2omgroups[key].append((entry[0], entry[1], entry[2], entry[3]))  # repo, doc, id, title
+
+    omgroup2files = {}
+    for entry in context.mhinputrefs:
+        if entry[2]:
+            key = (entry[2][0], entry[2][1], entry[2][2], entry[2][3])
+            if key not in omgroup2files:
+                omgroup2files[key] = []
+            omgroup2files[key].append((entry[3], entry[4]))
+        else:
+            print("Skipping:", repr(entry))
+
+    omgroup2files[(root_repo, root_doc, "root", "AI Lecture")] = [(root_repo, root_doc)]
 
 
+    # find fringe
+    potential_modules = []
+    for v in omgroup2files.values():
+        for e in v:
+            if e not in file2omgroups:
+                e2 = os.path.join(mathhub, e[0], "source", e[1]) + ".tex"
+                potential_modules.append(e2)
 
-mathhub = sys.argv[1]
+
+    # graph data
+    omgr2path = lambda omgr : os.path.join(mathhub, omgr[0], "source", omgr[1]) + ".tex"
+    for omgroup in omgroup2files.keys():
+        node = (omgr2path(omgroup), omgroup[2])
+        graph.omgroup_nodes[node] = {
+                    "label" : omgroup[3],
+                }
+        for f in omgroup2files[omgroup]:
+            if f in file2omgroups:
+                for omg2 in file2omgroups[f]:
+                    graph.omgroup_edges[((omgr2path(omgroup), omgroup[2]), (omgr2path(omg2), omg2[2]))] = { }
+            else:
+                path = os.path.join(mathhub, f[0], "source", f[1]) + ".tex"
+                graph.omgroup2module_edges[(node, path)] = {
+                            "status" : "unconfirmed",       # not clear if module exists
+                        }
+
+    return potential_modules
+
+def fill_graph(mathhub, root_repo, root_doc, graph):
+    potential_modules = add_omgroup_data(mathhub, root_repo, root_doc, graph)
+    blocked_nodes = potential_modules[:]
+
+    logger = harvest.SimpleLogger(2)
+    potential_nodes = {}
+    potential_edges = []
+    while potential_modules:
+        gatherer = harvest.DataGatherer()
+        context = harvest.HarvestContext(logger, gatherer, mathhub)
+        for pm in potential_modules:
+            context.repo = "/".join(pm.split("/")[:mathhub.count("/")+3]) # TODO: platform independence
+            path = pm
+            root, filename = os.path.split(path)
+            try:
+                harvest.harvest_file(root, filename, context)
+            except FileNotFoundError:
+                print("couldn't find '" + path + "'")
+        for mod in gatherer.modules:
+            node = mod["path"]
+            if node not in potential_nodes.keys():
+                name = mod["mod_name"]
+                if not name:
+                    name = os.path.split(node)[1][:-4]
+                potential_nodes[node] = {"label" : name, "type" : "module"}
+        for file_ in gatherer.textfiles:
+            node = file_["path"]
+            if node not in potential_nodes.keys():
+                potential_nodes[node] = {"label" : os.path.split(node)[1], "type" : "text"}
+
+        potential_modules = []      # includes text files
+        for imp in gatherer.importmhmodules:
+            destnode = imp["dest_path"]
+            if destnode not in blocked_nodes:
+                blocked_nodes.append(destnode)
+                potential_modules.append(destnode)
+            potential_edges.append((imp["path"], destnode))
+
+    for node in potential_nodes.keys():
+        graph.module_nodes[node] = {
+                    "label" : potential_nodes[node]["label"],
+                    "type" : potential_nodes[node]["type"],
+                }
+
+    for start, end in potential_edges:
+        if start in potential_nodes.keys() and end in potential_nodes.keys():
+            graph.module_edges[(start, end)] = {}
+
+def get_json(graph, with_omgroups=True, with_modules=True):
+    json_graph = {"nodes" : [], "edges" : []}
+    omgr2id = lambda omgr : omgr[0] + "?" + omgr[1]
+
+    if with_omgroups:
+        for node in graph.omgroup_nodes.keys():
+            json_graph["nodes"].append({
+                "id" : omgr2id(node),
+                "style" : "theory",
+                "label" : graph.omgroup_nodes[node]["label"] })
+        for start,end in graph.omgroup_edges:
+            json_graph["edges"].append({
+                "id" : omgr2id(start) + "??" + omgr2id(end),
+                "style" : "include",
+                "from" : omgr2id(start),
+                "to" : omgr2id(end),
+                "label" : ""})
+    if with_omgroups and with_modules:
+        for start,end in graph.omgroup2module_edges:
+            if end in graph.module_nodes:
+                json_graph["edges"].append({
+                    "id" : omgr2id(start) + "??" + end,
+                    "style" : "include",
+                    "from" : omgr2id(start),
+                    "to" : end,
+                    "label" : ""})
+
+    if with_modules:
+        for node in graph.module_nodes:
+            json_graph["nodes"].append({
+                    "id" : node,
+                    "style" : "model",
+                    "label" : graph.module_nodes[node]["label"]})
+        for start,end in graph.module_edges:
+            assert start in graph.module_nodes
+            assert end in graph.module_nodes
+            json_graph["edges"].append({
+                "id" : start + "??" + end,
+                "style" : "include",
+                "from" : start,
+                "to" : end,
+                "label" : ""})
+    return json_graph
+
+### PART 3 : RUN EVERYTHING
+
+mathhub = os.path.abspath(sys.argv[1])
 root_repo = sys.argv[2]
 root_doc = sys.argv[3]
 
@@ -167,128 +324,13 @@ print("Mathhub: " + mathhub)
 print("root repo: " + root_repo)
 print("root doc: " + root_doc)
 
-context = Context(mathhub, root_repo, root_doc)
-recurse_file(context)
+graph = Graph()
 
-# print(context.file2mod)
-# print(context.mhinputrefs)
+fill_graph(mathhub, root_repo, root_doc, graph)
 
-
-print("Done gathering")
-
-file2omgroups = {}
-for entry in context.file2mod:
-    if entry[4] == "omgroup":
-        key = (entry[0], entry[1])
-        if key not in file2omgroups:
-            file2omgroups[key] = []
-        file2omgroups[key].append((entry[0], entry[1], entry[2], entry[3]))  # repo, doc, id, title
-
-omgroup2files = {}
-for entry in context.mhinputrefs:
-    if entry[2]:
-        key = (entry[2][0], entry[2][1], entry[2][2], entry[2][3])
-        if key not in omgroup2files:
-            omgroup2files[key] = []
-        omgroup2files[key].append((entry[3], entry[4]))
-    else:
-        print("Skipping:", repr(entry))
-
-omgroup2files[(root_repo, root_doc, "root", "AI Lecture")] = [(root_repo, root_doc)]
-
-
-blocked_nodes = []
-potential_modules = []
-for v in omgroup2files.values():
-    for e in v:
-        if e not in file2omgroups:
-            e2 = os.path.join(mathhub, e[0], "source", e[1]) + ".tex"
-            potential_modules.append(e2)
-            blocked_nodes.append(e2)
-
-
-### PART 2 : PARSING MODULES
-
-gatherer = harvest.DataGatherer()
-logger = harvest.SimpleLogger(2)
-potential_nodes = []
-potential_edges = []
-while potential_modules:
-    context = harvest.HarvestContext(logger, gatherer, mathhub)
-    for pm in potential_modules:
-        context.repo = "/".join(pm.split("/")[:mathhub.count("/")+3]) # TODO: platform independence
-        path = pm
-        root, filename = os.path.split(path)
-        try:
-            harvest.harvest_file(root, filename, context)
-        except FileNotFoundError:
-            print("couldn't find '" + path + "'")
-    for mod in gatherer.modules:
-        node = mod["path"]
-        if node not in potential_nodes:
-            potential_nodes.append(node)
-
-    potential_modules = []
-    for imp in gatherer.importmhmodules:
-        destnode = imp["dest_path"]
-        if destnode not in blocked_nodes:
-            blocked_nodes.append(destnode)
-            potential_modules.append(destnode)
-        potential_edges.append((imp["path"], destnode))
-
-
-
-### PART 3 : GRAPH GENERATION
-
-graph = {"nodes" : [], "edges" : []}
-
-
-for omgroup in omgroup2files.keys():
-    graph["nodes"].append({
-            "id" : "?".join([omgroup[0],omgroup[1],str(omgroup[2])]),
-            "style" : "theory",
-            "label" : omgroup[3],
-            "url" : "None" })
-    for f in omgroup2files[omgroup]:
-        if f in file2omgroups:
-            for omg2 in file2omgroups[f]:
-                graph["edges"].append({
-                    "id" : "?".join([omgroup[0],omgroup[1],str(omgroup[2]),omg2[0],omg2[1],str(omg2[2])]),
-                    "style" : "view",
-                    "from" : "?".join([omgroup[0],omgroup[1],str(omgroup[2])]),
-                    "to" : "?".join([omg2[0], omg2[1], str(omg2[2])]),
-                    "label" : "mhincluderef",
-                    "url" : "None" })
-        else:
-            path = os.path.join(mathhub, f[0], "source", f[1]) + ".tex"
-            node = path
-            if node in potential_nodes:
-                graph["edges"].append({
-                    "id" : "?".join([omgroup[0],omgroup[1],node[0],node[1]]),
-                    "style" : "include",
-                    "from" : "?".join([omgroup[0],omgroup[1],str(omgroup[2])]),
-                    "to" : node,
-                    "label" : "mhincluderef",
-                    "url" : "None" })
-            
-
-for node in potential_nodes:
-    graph["nodes"].append({
-            "id" : node,
-            "style" : "model",
-            "label" : os.path.split(node)[1],
-            "url" : "None"
-        })
-
-for start, end in potential_edges:
-    if end in potential_nodes:
-        graph["edges"].append({
-                "id" : start + "?" + end,
-                "style" : "view",
-                "from" : start,
-                "to" : end,
-                "label" : "usemhmodule",
-                "url" : "None" })
+json_graph = get_json(graph)
 
 import json
-print(json.dumps(graph, indent=4))
+with open("graph.json", "w") as fp:
+    fp.write(json.dumps(json_graph, indent=4))
+

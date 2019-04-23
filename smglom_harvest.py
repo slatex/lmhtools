@@ -134,9 +134,10 @@ class DataGatherer(object):
         self.symis = []
         self.sigfiles = []
         self.langfiles = []
+        self.textfiles = []
         self.modules = []
         self.repos = []
-        self.importmhmodules = []
+        self.importmhmodules = []  # also contains usemhmodules!
 
     def push_repo(self, namespace, ctx):
         self.repos.append({
@@ -215,16 +216,25 @@ class DataGatherer(object):
             }
         )
 
-    def push_importmhmodule(self, repo, file_, ctx):
+    def push_importmhmodule(self, repo, file_, ctx):  # also for usemhmodule
         self.importmhmodules.append(
             {
-                "mod_name" : ctx.mod_name,
+                "mod_name" : ctx.mod_name,  # can be None
                 "repo" : ctx.repo,
                 "path" : ctx.file,
                 "dest_repo" : repo,
                 "dest_path" : file_,
             }
         )
+
+    def push_textfile(self, ctx):
+        self.textfiles.append(
+            {
+                "repo" : ctx.repo,
+                "path" : ctx.file,
+            }
+        )
+
 
 TOKEN_BEGIN_MHMODNL  = 0
 TOKEN_END_MHMODNL    = 1
@@ -241,6 +251,7 @@ TOKEN_SYMDEF         = 11
 TOKEN_BEGIN_MODULE   = 12
 TOKEN_END_MODULE     = 13
 TOKEN_IMPORTMHMODULE = 14
+TOKEN_USEMHMODULE    = 15
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -347,6 +358,12 @@ re_importmhmodule = re.compile(
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
+re_usemhmodule = re.compile(
+        r"\\usemhmodule\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -363,6 +380,7 @@ regexes = [
         (re_begin_module, TOKEN_BEGIN_MODULE),
         (re_end_module, TOKEN_END_MODULE),
         (re_importmhmodule, TOKEN_IMPORTMHMODULE),
+        (re_usemhmodule, TOKEN_USEMHMODULE),
         ]
 
 def get_noverb(param_dict):
@@ -539,7 +557,6 @@ def harvest_nl(string, name, lang, ctx):
 def harvest_mono(string, ctx):
     """ harvests the data from file content """
 
-    # Check module type
     tokens = parse(string, regexes)
     if len(tokens) == 0:
         ctx.log("No matches found in file", 2)
@@ -570,7 +587,7 @@ def harvest_mono(string, ctx):
                 continue
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
-        elif token_type == TOKEN_IMPORTMHMODULE:
+        elif token_type == TOKEN_IMPORTMHMODULE or token_type == TOKEN_USEMHMODULE:
             if not in_module:
                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
                         1, get_file_pos_str(string, match.start()))
@@ -619,10 +636,9 @@ def harvest_mono(string, ctx):
 def harvest_text(string, ctx):
     """ harvests the trefis etc. from unidentified file content """
 
-    # Check module type
     tokens = parse(string, regexes)
-    ctx.mod_name = "?"
-    ctx.mod_type = "?"
+    assert ctx.mod_name == None
+    ctx.gatherer.push_textfile(ctx)
 
     for (match, token_type) in tokens:
         if token_type == TOKEN_TREF:
@@ -630,6 +646,17 @@ def harvest_text(string, ctx):
             #        3, get_file_pos_str(string, match.start()))
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+        elif token_type == TOKEN_USEMHMODULE:
+            params = get_params(match.group("params"))
+            repo = ctx.repo
+            if "repos" in params:
+                repo = os.path.join(ctx.mathhub_path, params["repos"])
+            file_name = match.group("arg") + ".tex"
+            if "path" in params:
+                path = os.path.join(repo, "source", params["path"]) + ".tex"
+            else:
+                path = os.path.join(os.path.split(ctx.file)[0], file_name)
+            ctx.gatherer.push_importmhmodule(repo, path, ctx)
         else:
             ctx.log(f"Unexpected token in unidentified file: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
     
@@ -671,6 +698,8 @@ def harvest_file(root, file_name, ctx):
 
     with open(file_path, "r") as fp:
         ctx.file = file_path
+        ctx.mod_name = None
+        ctx.mod_type = None
         try:
             string = preprocess_string(fp.read())
             file_type = identify_file(string)
