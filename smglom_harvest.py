@@ -381,7 +381,7 @@ re_usemhmodule = re.compile(
         )
 
 re_gimport = re.compile(
-        r"\\gimport\s*"
+        r"\\gimport(\*)?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameter
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
@@ -708,6 +708,13 @@ def harvest_text(string, ctx):
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
             ctx.gatherer.push_importmhmodule(repo, path, ctx)
+        elif token_type == TOKEN_GUSE:
+            repo = ctx.repo
+            repo_param = match.group("params")
+            if repo_param:
+                repo = os.path.join(ctx.mathhub_path, repo_param)
+            mod_name = match.group("arg")
+            ctx.gatherer.push_gimport(repo, mod_name, "guse", ctx)
         else:
             ctx.log(f"Unexpected token in unidentified file: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
     
