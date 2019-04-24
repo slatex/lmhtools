@@ -132,6 +132,7 @@ class DataGatherer(object):
         self.defis = []
         self.trefis = []
         self.symis = []
+        self.gimports = []
         self.sigfiles = []
         self.langfiles = []
         self.textfiles = []
@@ -235,6 +236,19 @@ class DataGatherer(object):
             }
         )
 
+    def push_gimport(self, repo, mod_name, type_, ctx):  # also for guses
+        self.gimports.append(
+            {
+                "mod_name" : ctx.mod_name,
+                "repo" : ctx.repo,
+                "path" : ctx.file,
+                "type" : type_,     # "guse" or "gimport"
+                "dest_repo" : repo,
+                "dest_mod" : mod_name,
+            }
+        )
+
+
 
 TOKEN_BEGIN_MHMODNL  = 0
 TOKEN_END_MHMODNL    = 1
@@ -252,6 +266,8 @@ TOKEN_BEGIN_MODULE   = 12
 TOKEN_END_MODULE     = 13
 TOKEN_IMPORTMHMODULE = 14
 TOKEN_USEMHMODULE    = 15
+TOKEN_GIMPORT        = 16
+TOKEN_GUSE           = 17
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -364,6 +380,18 @@ re_usemhmodule = re.compile(
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
+re_gimport = re.compile(
+        r"\\gimport\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameter
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
+re_guse = re.compile(
+        r"\\guse\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameter
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -381,6 +409,8 @@ regexes = [
         (re_end_module, TOKEN_END_MODULE),
         (re_importmhmodule, TOKEN_IMPORTMHMODULE),
         (re_usemhmodule, TOKEN_USEMHMODULE),
+        (re_gimport, TOKEN_GIMPORT),
+        (re_guse, TOKEN_GUSE),
         ]
 
 def get_noverb(param_dict):
@@ -475,6 +505,13 @@ def harvest_sig(string, name, ctx):
             ctx.mod_name = match.group("name")
         elif token_type == required_end_sig:
             required_end_sig = None
+        elif token_type == TOKEN_GIMPORT:
+            repo = ctx.repo
+            repo_param = match.group("params")
+            if repo_param:
+                repo = os.path.join(ctx.mathhub_path, repo_param)
+            mod_name = match.group("arg")
+            ctx.gatherer.push_gimport(repo, mod_name, "gimport", ctx)
         else:
             ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
 
@@ -541,6 +578,13 @@ def harvest_nl(string, name, lang, ctx):
             ctx.mod_type = "gviewnl"
         elif token_type == required_end_module:
             required_end_module = None
+        elif token_type == TOKEN_GUSE:
+            repo = ctx.repo
+            repo_param = match.group("params")
+            if repo_param:
+                repo = os.path.join(ctx.mathhub_path, repo_param)
+            mod_name = match.group("arg")
+            ctx.gatherer.push_gimport(repo, mod_name, "guse", ctx)
         else:
             ctx.log(f"Unexpected token: '{match.group(0)}'", 2, get_file_pos_str(string, match.start()))
 
@@ -624,6 +668,13 @@ def harvest_mono(string, ctx):
             if in_module == 0 and in_named_module:
                 ctx.gatherer.push_module(ctx)
                 in_named_module = False
+        elif token_type == TOKEN_GUSE or token_type == TOKEN_GIMPORT:
+            repo = ctx.repo
+            repo_param = match.group("params")
+            if repo_param:
+                repo = os.path.join(ctx.mathhub_path, repo_param)
+            mod_name = match.group("arg")
+            ctx.gatherer.push_gimport(repo, mod_name, {TOKEN_GUSE : "guse", TOKEN_GIMPORT : "gimport"}, ctx)
         else:
             if token_type == TOKEN_SYMDEF and in_named_module:
                 continue
@@ -768,7 +819,17 @@ if __name__ == "__main__":
     verbosity = args.verbosity
     if verbosity >= 2:
         print("GATHERING DATA\n")
-    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer())
+
+    # determine mathhub folder
+    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
+    while not mathhub_repo.endswith("MathHub"):
+        new = os.path.split(mathhub_repo)[0]
+        if new == mathhub_repo:
+            raise Exception("Failed to infer MathHub directory")
+        mathhub_repo = new
+
+    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer(), mathhub_repo)
+
     for directory in args.DIRECTORY:
         gather_data_for_all_repos(directory, ctx)
 

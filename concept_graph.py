@@ -166,6 +166,8 @@ class Graph(object):
         self.module_nodes = {}
         self.module_edges = {}
         self.omgroup2module_edges = {}
+        self.g_nodes = {}
+        self.g_edges = {}
 
 def add_omgroup_data(mathhub, root_repo, root_doc, graph):
     # gather data
@@ -229,6 +231,7 @@ def fill_graph(mathhub, root_repo, root_doc, graph):
     logger = harvest.SimpleLogger(2)
     potential_nodes = {}
     potential_edges = []
+    gimports = []
     while potential_modules:
         gatherer = harvest.DataGatherer()
         context = harvest.HarvestContext(logger, gatherer, mathhub)
@@ -251,6 +254,8 @@ def fill_graph(mathhub, root_repo, root_doc, graph):
             node = file_["path"]
             if node not in potential_nodes.keys():
                 potential_nodes[node] = {"label" : os.path.split(node)[1], "type" : "text"}
+        assert not gatherer.sigfiles
+        assert not gatherer.langfiles
 
         potential_modules = []      # includes text files
         for imp in gatherer.importmhmodules:
@@ -259,6 +264,10 @@ def fill_graph(mathhub, root_repo, root_doc, graph):
                 blocked_nodes.append(destnode)
                 potential_modules.append(destnode)
             potential_edges.append((imp["path"], destnode))
+        for gimport in gatherer.gimports:
+            gimports.append((gimport["path"],
+                             os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex"))
+            graph.g_edges[gimports[-1]] = {}
 
     for node in potential_nodes.keys():
         graph.module_nodes[node] = {
@@ -270,7 +279,40 @@ def fill_graph(mathhub, root_repo, root_doc, graph):
         if start in potential_nodes.keys() and end in potential_nodes.keys():
             graph.module_edges[(start, end)] = {}
 
-def get_json(graph, with_omgroups=True, with_modules=True):
+    ## handle gimports
+    assert graph.g_nodes == {}
+    while gimports:
+        gatherer = harvest.DataGatherer()
+        context = harvest.HarvestContext(logger, gatherer, mathhub)
+        for source, dest in gimports:
+            if dest not in graph.g_nodes.keys() and dest not in potential_nodes.keys():
+                context.repo = "/".join(dest.split("/")[:mathhub.count("/")+3]) # TODO: platform independence
+                root, filename = os.path.split(dest)
+                try:
+                    harvest.harvest_file(root, filename, context)
+                except FileNotFoundError:
+                    print("couldn't find '" + path + "'")
+        assert not gatherer.langfiles
+        assert not gatherer.textfiles
+        for mod in gatherer.modules + gatherer.sigfiles:
+            node = mod["path"]
+            if node not in potential_nodes.keys() and node not in graph.g_nodes.keys():
+                name = mod["mod_name"]
+                if not name:
+                    name = os.path.split(node)[1][:-4]
+                graph.g_nodes[node] = {"label" : name, "type" : "module"}
+        gimports = []
+        for gimport in gatherer.gimports:
+            pair = (gimport["path"], os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex")
+            graph.g_edges[pair] = {}
+            if pair[1] not in graph.g_nodes.keys() and pair[1] not in potential_nodes.keys():
+                gimports.append(pair)
+
+
+
+
+
+def get_json(graph, with_omgroups=True, with_modules=True, with_gimports=True):
     json_graph = {"nodes" : [], "edges" : []}
     omgr2id = lambda omgr : omgr[0] + "?" + omgr[1]
 
@@ -312,6 +354,22 @@ def get_json(graph, with_omgroups=True, with_modules=True):
                 "from" : start,
                 "to" : end,
                 "label" : ""})
+
+    if with_gimports:
+        for node in graph.g_nodes.keys():
+            json_graph["nodes"].append({
+                "id" : node,
+                "style" : "model",
+                "label" : graph.g_nodes[node]["label"]})
+        for start,end in graph.g_edges.keys():
+            assert start in graph.module_nodes.keys() or start in graph.g_nodes.keys()
+            if end in graph.module_nodes.keys() or end in graph.g_nodes.keys():
+                json_graph["edges"].append({
+                    "id" : start + "??" + end,
+                    "style" : "modelinclude",
+                    "from" : start,
+                    "to" : end,
+                    "label" : ""})
     return json_graph
 
 ### PART 3 : RUN EVERYTHING
