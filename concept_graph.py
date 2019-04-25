@@ -27,7 +27,7 @@ def parse(string, regexes):
 
 
 class Context(object):
-    def __init__(self, mathhub, repo, doc):
+    def __init__(self, mathhub, repo, doc, onlycovered = False):
         self.mathhub = mathhub
         self.repo = [repo]
         self.doc = [doc]
@@ -35,6 +35,7 @@ class Context(object):
         self.files = [(repo, doc)]
         self.file2mod = []
         self.mhinputrefs = []   # mod 2 file
+        self.onlycovered = onlycovered
 
     def get_path(self):
         return os.path.join(self.mathhub, self.repo[-1], "source", self.doc[-1]) + ".tex"
@@ -73,24 +74,30 @@ class Context(object):
 
 
 
-TOKEN_MHINPUTREF = 0
-TOKEN_BEGIN_OMGROUP = 1
-TOKEN_END_OMGROUP = 2
+TOKEN_MHINPUTREF       = 0
+TOKEN_BEGIN_OMGROUP    = 1
+TOKEN_END_OMGROUP      = 2
+TOKEN_COVEREDUNTILHERE = 3
 
 
 re_arg_core = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
 re_arg = r"\{(?P<arg>" + re_arg_core + r")\}\s*"
 re_param = r"(?:\[(?P<params>[^\]]*)\])?\s*"
 
-re_mhinputref = re.compile(r"\\mhinputref" + re_param + re_arg)
-re_begin_omgroup = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
-re_end_omgroup = re.compile(r"\\end\{omgroup\}")
+re_mhinputref       = re.compile(r"\\mhinputref" + re_param + re_arg)
+re_begin_omgroup    = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
+re_end_omgroup      = re.compile(r"\\end\{omgroup\}")
+re_covereduntilhere = re.compile(r"\\covereduntilhere")
 
 regexes = [
         (re_mhinputref, TOKEN_MHINPUTREF),
         (re_begin_omgroup, TOKEN_BEGIN_OMGROUP),
         (re_end_omgroup, TOKEN_END_OMGROUP),
+        (re_covereduntilhere, TOKEN_COVEREDUNTILHERE),
         ]
+
+class CoveredUntilHereException(Exception):
+    pass
 
 def recurse_omgroup(context, i, tokens):
     (match, token_type) = tokens[i]
@@ -120,6 +127,10 @@ def recurse_omgroup(context, i, tokens):
             doc = match.group("arg")
             context.push_mhinputref(repo, doc)
             recurse_into.append((repo, doc))
+            i += 1
+        elif token_type == TOKEN_COVEREDUNTILHERE:
+            if context.onlycovered:
+                raise CoveredUntilHereException()
             i += 1
         else:
             context.throw(f"Unexpected token: '{match.group(0)}'")
@@ -170,10 +181,13 @@ class Graph(object):
         self.g_nodes = {}
         self.g_edges = {}
 
-def add_omgroup_data(mathhub, root_repo, root_doc, graph):
+def add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered):
     # gather data
-    context = Context(mathhub, root_repo, root_doc)
-    recurse_file(context)
+    context = Context(mathhub, root_repo, root_doc, onlycovered)
+    try:
+        recurse_file(context)
+    except CoveredUntilHereException:
+        pass
 
     # process data
     file2omgroups = {}
@@ -225,8 +239,8 @@ def add_omgroup_data(mathhub, root_repo, root_doc, graph):
 
     return potential_modules
 
-def fill_graph(mathhub, root_repo, root_doc, graph):
-    potential_modules = add_omgroup_data(mathhub, root_repo, root_doc, graph)
+def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
+    potential_modules = add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered)
     blocked_nodes = potential_modules[:]
 
     logger = harvest.SimpleLogger(2)
@@ -313,17 +327,20 @@ def fill_graph(mathhub, root_repo, root_doc, graph):
 
 
 
-def get_json(graph, with_omgroups=True, with_modules=True, with_gimports=True):
+def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, with_gimports=True):
     json_graph = {"nodes" : [], "edges" : []}
     omgr2id = lambda omgr : omgr[0] + "?" + omgr[1]
+    covered_nodes = list(covered_graph.omgroup_nodes.keys())
+    covered_nodes += list(covered_graph.module_nodes.keys()) 
+    covered_nodes += list(covered_graph.g_nodes.keys())
 
     if with_omgroups:
-        for node in graph.omgroup_nodes.keys():
+        for node in full_graph.omgroup_nodes.keys():
             json_graph["nodes"].append({
                 "id" : omgr2id(node),
-                "style" : "theory",
-                "label" : graph.omgroup_nodes[node]["label"] })
-        for start,end in graph.omgroup_edges:
+                "color" : "#222222" if node in covered_nodes else "#cccccc",
+                "label" : full_graph.omgroup_nodes[node]["label"] })
+        for start,end in full_graph.omgroup_edges:
             json_graph["edges"].append({
                 "id" : omgr2id(start) + "??" + omgr2id(end),
                 "style" : "include",
@@ -331,8 +348,8 @@ def get_json(graph, with_omgroups=True, with_modules=True, with_gimports=True):
                 "to" : omgr2id(end),
                 "label" : ""})
     if with_omgroups and with_modules:
-        for start,end in graph.omgroup2module_edges:
-            if end in graph.module_nodes:
+        for start,end in full_graph.omgroup2module_edges:
+            if end in full_graph.module_nodes:
                 json_graph["edges"].append({
                     "id" : omgr2id(start) + "??" + end,
                     "style" : "include",
@@ -341,14 +358,20 @@ def get_json(graph, with_omgroups=True, with_modules=True, with_gimports=True):
                     "label" : ""})
 
     if with_modules:
-        for node in graph.module_nodes:
-            json_graph["nodes"].append({
-                    "id" : node,
-                    "style" : "model",
-                    "label" : graph.module_nodes[node]["label"]})
-        for start,end in graph.module_edges:
-            assert start in graph.module_nodes
-            assert end in graph.module_nodes
+        for node in full_graph.module_nodes:
+            if full_graph.module_nodes[node]["type"] == "text":
+                json_graph["nodes"].append({
+                        "id" : node,
+                        "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
+                        "label" : full_graph.module_nodes[node]["label"]})
+            else:
+                json_graph["nodes"].append({
+                        "id" : node,
+                        "color" : "#0000ff" if node in covered_nodes else "#ddddff",
+                        "label" : full_graph.module_nodes[node]["label"]})
+        for start,end in full_graph.module_edges:
+            assert start in full_graph.module_nodes
+            assert end in full_graph.module_nodes
             json_graph["edges"].append({
                 "id" : start + "??" + end,
                 "style" : "include",
@@ -357,17 +380,17 @@ def get_json(graph, with_omgroups=True, with_modules=True, with_gimports=True):
                 "label" : ""})
 
     if with_gimports:
-        for node in graph.g_nodes.keys():
+        for node in full_graph.g_nodes.keys():
             json_graph["nodes"].append({
                 "id" : node,
-                "style" : "model",
-                "label" : graph.g_nodes[node]["label"]})
-        for start,end in graph.g_edges.keys():
-            assert start in graph.module_nodes.keys() or start in graph.g_nodes.keys()
-            if end in graph.module_nodes.keys() or end in graph.g_nodes.keys():
+                "color" : "#00cc00" if node in covered_nodes else "#cceecc",
+                "label" : full_graph.g_nodes[node]["label"]})
+        for start,end in full_graph.g_edges.keys():
+            assert start in full_graph.module_nodes.keys() or start in full_graph.g_nodes.keys()
+            if end in full_graph.module_nodes.keys() or end in full_graph.g_nodes.keys():
                 json_graph["edges"].append({
                     "id" : start + "??" + end,
-                    "style" : "modelinclude",
+                    "style" : "include",
                     "from" : start,
                     "to" : end,
                     "label" : ""})
@@ -383,11 +406,14 @@ print("Mathhub: " + mathhub)
 print("root repo: " + root_repo)
 print("root doc: " + root_doc)
 
-graph = Graph()
 
-fill_graph(mathhub, root_repo, root_doc, graph)
+covered_graph = Graph()
+fill_graph(mathhub, root_repo, root_doc, covered_graph, True)
 
-json_graph = get_json(graph)
+full_graph = Graph()
+fill_graph(mathhub, root_repo, root_doc, full_graph, False)
+
+json_graph = get_json(covered_graph, full_graph)
 
 import json
 with open("graph.json", "w") as fp:
