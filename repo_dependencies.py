@@ -54,7 +54,53 @@ def gather_repos(path, REPOS):
             else:
                 assert False
 
+def get_olddeps(line):
+    line = line[len("dependencies:"):]
+    while line and line[0] == " ":
+        line = line[1:]
+    sep = re.compile(r",\s*")
+    return sep.split(line)
 
+def adjust_manifest(dir_path, REPOS):
+    new_manifest = ""
+    found_deps = False
+    new_line = "dependencies: " + ",".join(REPOS.keys())
+    with open(os.path.join(dir_path, "../META-INF/MANIFEST.MF"), "r") as fp:
+        for line in fp:
+            if line.startswith("dependencies: "):
+                if found_deps:
+                    print("ERROR: Multiple entries for dependencies found in manifest")
+                    return
+                old_entries = set(get_olddeps(line[:-1]))
+                new_entries = set(REPOS.keys())
+                if old_entries == new_entries:
+                    print("The dependencies are already up-to-date")
+                    return
+                if new_entries - old_entries:
+                    print("Adding the following dependencies:", ",".join(list(new_entries - old_entries)))
+                    print()
+                if old_entries - new_entries:
+                    print("Removing the following dependencies:", ",".join(list(old_entries - new_entries)))
+                    print()
+                print("old " + line[:-1])
+                print("new " + new_line)
+                new_manifest += new_line + "\n"
+                found_deps = True
+            else:
+                new_manifest += line
+    if not found_deps:
+        print()
+        print("No entry for dependencies found in "  + os.path.join(dir_path, "META-INF/MANIFEST.MF"))
+        print("Appending the following entry:")
+        print(new_line)
+        new_manifest += new_line + "\n"
+
+    print()
+    i = input("Do you want to apply these changes? (enter 'y' to confirm): ")
+    if i == 'y':
+        with open(os.path.join(dir_path, "../META-INF/MANIFEST.MF"), "w") as fp:
+            fp.write(new_manifest)
+        print("Dependecies successfully updated")
 
 
 if __name__ == "__main__":
@@ -91,4 +137,18 @@ if __name__ == "__main__":
         for repo in REPOS.keys():
             print("I found this dependency:", repo)
             print("Evidence:", REPOS[repo])
-
+        print()
+        to_ignore = None
+        for repo in REPOS.keys():
+            rp = os.path.abspath(os.path.join(dir_path, "../../..", repo))
+            if not os.path.isdir(rp):
+                print("WARNING: I didn't find the directory " + rp)
+            if directory.endswith(repo):
+                print("WARNING: It appears that you self-reference the repo:")
+                print("         " + REPOS[repo])
+                print("         -> I'm going to ignore this entry")
+                to_ignore = repo
+        del REPOS[to_ignore]
+        print()
+        print()
+        adjust_manifest(dir_path, REPOS)
