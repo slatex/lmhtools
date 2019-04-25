@@ -240,6 +240,7 @@ class DataGatherer(object):
         self.gimports.append(
             {
                 "mod_name" : ctx.mod_name,
+                "mod_type" : ctx.mod_type,
                 "repo" : ctx.repo,
                 "path" : ctx.file,
                 "type" : type_,     # "guse" or "gimport"
@@ -762,6 +763,7 @@ def harvest_file(root, file_name, ctx):
             string = preprocess_string(fp.read())
             file_type = identify_file(string)
             if not file_type:
+                ctx.mod_type = "text"
                 harvest_text(string, ctx)
                 return
             if lang:

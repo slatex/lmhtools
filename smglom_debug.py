@@ -248,7 +248,16 @@ if __name__ == "__main__":
         logger = harvest.SimpleLogger(verbosity)
 
     logger.log("GATHERING DATA\n", minverbosity=2)
-    ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
+
+    # determine mathhub folder
+    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
+    while not mathhub_repo.endswith("MathHub"):
+        new = os.path.split(mathhub_repo)[0]
+        if new == mathhub_repo:
+            raise Exception("Failed to infer MathHub directory")
+        mathhub_repo = new
+
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_repo)
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
 

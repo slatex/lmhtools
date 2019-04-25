@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Can be used to creates statistics about smglom.
+Can be used to create statistics about smglom.
 
 This script analyzes the data collected with smglom_harvet.py.
 A verbosity level can be set to change the what kind of errors
@@ -105,7 +105,16 @@ if __name__ == "__main__":
     if args.verbosity >= 2:
         print("GATHERING DATA\n")
     logger = harvest.SimpleLogger(args.verbosity)
-    ctx = harvest.HarvestContext(logger, harvest.DataGatherer())
+
+    # determine mathhub folder
+    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
+    while not mathhub_repo.endswith("MathHub"):
+        new = os.path.split(mathhub_repo)[0]
+        if new == mathhub_repo:
+            raise Exception("Failed to infer MathHub directory")
+        mathhub_repo = new
+
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_repo)
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
 

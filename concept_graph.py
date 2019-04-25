@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-# The harvesting functionality should be integrated into `smglom_harvest.py`
-# and the rest should be refactored into a separated script based on `smglom_harvest.py`.
+"""
+Very hacky and unpolished script to create a concept graph for the AI lecture
+"""
 
 import sys
 import re
