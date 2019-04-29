@@ -164,7 +164,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Script for printing SMGloM statistics",
             epilog="Example call: smglom_stats.py -v0 ../..")
     parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4), help="the verbosity (default: 1)")
-    parser.add_argument("-c", "--csv", action="store_true")
+    parser.add_argument("-c", "--csv", action="store_true", help="generate a CSV table")
     parser.add_argument("DIRECTORY", nargs="+", help="git repo or higher level directory for which statistics are generated")
     args = parser.parse_args()
 
@@ -173,14 +173,14 @@ if __name__ == "__main__":
     logger = harvest.SimpleLogger(args.verbosity)
 
     # determine mathhub folder
-    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
-    while not mathhub_repo.endswith("MathHub"):
-        new = os.path.split(mathhub_repo)[0]
-        if new == mathhub_repo:
+    mathhub_dir = os.path.abspath(args.DIRECTORY[0])
+    while not mathhub_dir.endswith("MathHub"):
+        new = os.path.split(mathhub_dir)[0]
+        if new == mathhub_dir:
             raise Exception("Failed to infer MathHub directory")
-        mathhub_repo = new
+        mathhub_dir = new
 
-    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_repo)
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
 

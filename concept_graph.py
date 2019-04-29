@@ -327,7 +327,7 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
 
 
-def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, with_gimports=True):
+def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
     json_graph = {"nodes" : [], "edges" : []}
     omgr2id = lambda omgr : omgr[0] + "?" + omgr[1]
     covered_nodes = list(covered_graph.omgroup_nodes.keys())
@@ -359,7 +359,7 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
 
     if with_modules:
         for node in full_graph.module_nodes:
-            if full_graph.module_nodes[node]["type"] == "text":
+            if full_graph.module_nodes[node]["type"] == "text" and with_text:
                 json_graph["nodes"].append({
                         "id" : node,
                         "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
@@ -372,6 +372,8 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
         for start,end in full_graph.module_edges:
             assert start in full_graph.module_nodes
             assert end in full_graph.module_nodes
+            if not with_text and (full_graph.module_nodes[start]["type"]=="text" or full_graph.module_nodes[end]["type"]=="text"):
+                continue
             json_graph["edges"].append({
                 "id" : start + "??" + end,
                 "style" : "include",
@@ -396,26 +398,55 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
                     "label" : ""})
     return json_graph
 
+
 ### PART 3 : RUN EVERYTHING
+if __name__ == "__main__":
+    import argparse
 
-mathhub = os.path.abspath(sys.argv[1])
-root_repo = sys.argv[2]
-root_doc = sys.argv[3]
+    parser = argparse.ArgumentParser(description="Script for generating a TGView-compatible concept graph from sTeX")
+    parser.add_argument("-i", "--ignoretoc", action="store_true", help="Ignore table of contents (omgroups)")
+    parser.add_argument("-n", "--notext", action="store_true", help="Ignore text nodes")
+    parser.add_argument("DIRECTORY", help=".tex file for which the graph shall be generated (typically path/to/notes.tex)")
+    args = parser.parse_args()
 
-print("Mathhub: " + mathhub)
-print("root repo: " + root_repo)
-print("root doc: " + root_doc)
+    ## Split path into components
+    mathhub_dir = os.path.abspath(args.DIRECTORY)
+    root_doc = None
+    while not mathhub_dir.endswith("source"):
+        new_path, head = os.path.split(mathhub_dir)
+        if not root_doc:
+            if not head.endswith(".tex"):
+                raise Exception("Expected a *.tex file")
+            root_doc = head[:-4]
+        else:
+            root_doc = head + "/" + root_doc
+        if new_path == mathhub_dir:
+            raise Exception("Failed to understand path (no source folder found)")
+        mathhub_dir = new_path
 
+    mathhub_dir = os.path.split(mathhub_dir)[0]  # pop source dir
+    root_repo = []
+    while not mathhub_dir.endswith("MathHub"):
+        new_path, head = os.path.split(mathhub_dir)
+        root_repo = [head] + root_repo
+        if new_path == mathhub_dir:
+            raise Exception("Failed to infer MathHub directory")
+        mathhub_dir = new_path
+    root_repo = "/".join(root_repo)
 
-covered_graph = Graph()
-fill_graph(mathhub, root_repo, root_doc, covered_graph, True)
+    print("Mathhub: " + mathhub_dir)
+    print("root repo: " + root_repo)
+    print("root doc: " + root_doc)
 
-full_graph = Graph()
-fill_graph(mathhub, root_repo, root_doc, full_graph, False)
-
-json_graph = get_json(covered_graph, full_graph)
-
-import json
-with open("graph.json", "w") as fp:
-    fp.write(json.dumps(json_graph, indent=4))
+    covered_graph = Graph()
+    fill_graph(mathhub_dir, root_repo, root_doc, covered_graph, True)
+    
+    full_graph = Graph()
+    fill_graph(mathhub_dir, root_repo, root_doc, full_graph, False)
+    
+    json_graph = get_json(covered_graph, full_graph, with_omgroups=(not args.ignoretoc), with_text=(not args.notext))
+    
+    import json
+    with open("graph.json", "w") as fp:
+        fp.write(json.dumps(json_graph, indent=4))
 
