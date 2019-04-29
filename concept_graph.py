@@ -359,7 +359,9 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
 
     if with_modules:
         for node in full_graph.module_nodes:
-            if full_graph.module_nodes[node]["type"] == "text" and with_text:
+            if full_graph.module_nodes[node]["type"] == "text" and not with_text:
+                continue
+            if with_text:
                 json_graph["nodes"].append({
                         "id" : node,
                         "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
