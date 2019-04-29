@@ -77,7 +77,7 @@ class Context(object):
 TOKEN_MHINPUTREF       = 0
 TOKEN_BEGIN_OMGROUP    = 1
 TOKEN_END_OMGROUP      = 2
-TOKEN_COVEREDUNTILHERE = 3
+TOKEN_COVEREDUPTOHERE  = 3
 
 
 re_arg_core = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
@@ -87,13 +87,13 @@ re_param = r"(?:\[(?P<params>[^\]]*)\])?\s*"
 re_mhinputref       = re.compile(r"\\mhinputref" + re_param + re_arg)
 re_begin_omgroup    = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
 re_end_omgroup      = re.compile(r"\\end\{omgroup\}")
-re_covereduntilhere = re.compile(r"\\covereduntilhere")
+re_covereduptohere = re.compile(r"\\covereduptohere")
 
 regexes = [
         (re_mhinputref, TOKEN_MHINPUTREF),
         (re_begin_omgroup, TOKEN_BEGIN_OMGROUP),
         (re_end_omgroup, TOKEN_END_OMGROUP),
-        (re_covereduntilhere, TOKEN_COVEREDUNTILHERE),
+        (re_covereduptohere, TOKEN_COVEREDUPTOHERE),
         ]
 
 class CoveredUntilHereException(Exception):
@@ -128,7 +128,7 @@ def recurse_omgroup(context, i, tokens):
             context.push_mhinputref(repo, doc)
             recurse_into.append((repo, doc))
             i += 1
-        elif token_type == TOKEN_COVEREDUNTILHERE:
+        elif token_type == TOKEN_COVEREDUPTOHERE:
             if context.onlycovered:
                 raise CoveredUntilHereException()
             i += 1
@@ -344,8 +344,8 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
             json_graph["edges"].append({
                 "id" : omgr2id(start) + "??" + omgr2id(end),
                 "style" : "include",
-                "from" : omgr2id(start),
-                "to" : omgr2id(end),
+                "to" : omgr2id(start),
+                "from" : omgr2id(end),
                 "label" : ""})
     if with_omgroups and with_modules:
         for start,end in full_graph.omgroup2module_edges:
@@ -353,8 +353,8 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
                 json_graph["edges"].append({
                     "id" : omgr2id(start) + "??" + end,
                     "style" : "include",
-                    "from" : omgr2id(start),
-                    "to" : end,
+                    "to" : omgr2id(start),
+                    "from" : end,
                     "label" : ""})
 
     if with_modules:
@@ -375,8 +375,8 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
             json_graph["edges"].append({
                 "id" : start + "??" + end,
                 "style" : "include",
-                "from" : start,
-                "to" : end,
+                "to" : start,
+                "from" : end,
                 "label" : ""})
 
     if with_gimports:
@@ -391,8 +391,8 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
                 json_graph["edges"].append({
                     "id" : start + "??" + end,
                     "style" : "include",
-                    "from" : start,
-                    "to" : end,
+                    "to" : start,
+                    "from" : end,
                     "label" : ""})
     return json_graph
 

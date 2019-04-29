@@ -80,7 +80,7 @@ def adjust_manifest(dir_path, REPOS):
                     print("Adding the following dependencies:", ",".join(list(new_entries - old_entries)))
                     print()
                 if old_entries - new_entries:
-                    print("Removing the following dependencies:", ",".join(list(old_entries - new_entries)))
+                    print("Removing the following dependencies:", repr(old_entries - new_entries)) # .join(["'" + s + "'" for s in list(old_entries - new_entries)]))
                     print()
                 print("old " + line[:-1])
                 print("new " + new_line)
@@ -148,7 +148,8 @@ if __name__ == "__main__":
                 print("         " + REPOS[repo])
                 print("         -> I'm going to ignore this entry")
                 to_ignore = repo
-        del REPOS[to_ignore]
+        if to_ignore:
+            del REPOS[to_ignore]
         print()
         print()
         adjust_manifest(dir_path, REPOS)
