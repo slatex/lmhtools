@@ -327,9 +327,10 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
 
 
-def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
+def get_json(coverd_graph, full_graph, mathhub_dir, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
     json_graph = {"nodes" : [], "edges" : []}
-    omgr2id = lambda omgr : omgr[0] + "?" + omgr[1]
+    to_relpath = lambda path : os.path.relpath(path, start=mathhub_dir)
+    omgr2id = lambda omgr : to_relpath(omgr[0]) + "?" + omgr[1]
     covered_nodes = list(covered_graph.omgroup_nodes.keys())
     covered_nodes += list(covered_graph.module_nodes.keys()) 
     covered_nodes += list(covered_graph.g_nodes.keys())
@@ -351,10 +352,10 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
         for start,end in full_graph.omgroup2module_edges:
             if end in full_graph.module_nodes:
                 json_graph["edges"].append({
-                    "id" : omgr2id(start) + "??" + end,
+                    "id" : omgr2id(start) + "??" + to_relpath(end),
                     "style" : "include",
                     "to" : omgr2id(start),
-                    "from" : end,
+                    "from" : to_relpath(end),
                     "label" : ""})
 
     if with_modules:
@@ -363,12 +364,12 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
                 continue
             if with_text:
                 json_graph["nodes"].append({
-                        "id" : node,
+                        "id" : to_relpath(node),
                         "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
                         "label" : full_graph.module_nodes[node]["label"]})
             else:
                 json_graph["nodes"].append({
-                        "id" : node,
+                        "id" : to_relpath(node),
                         "color" : "#0000ff" if node in covered_nodes else "#ddddff",
                         "label" : full_graph.module_nodes[node]["label"]})
         for start,end in full_graph.module_edges:
@@ -377,26 +378,26 @@ def get_json(coverd_graph, full_graph, with_omgroups=True, with_modules=True, wi
             if not with_text and (full_graph.module_nodes[start]["type"]=="text" or full_graph.module_nodes[end]["type"]=="text"):
                 continue
             json_graph["edges"].append({
-                "id" : start + "??" + end,
+                "id" : to_relpath(start) + "??" + to_relpath(end),
                 "style" : "include",
-                "to" : start,
-                "from" : end,
+                "to" : to_relpath(start),
+                "from" : to_relpath(end),
                 "label" : ""})
 
     if with_gimports:
         for node in full_graph.g_nodes.keys():
             json_graph["nodes"].append({
-                "id" : node,
+                "id" : to_relpath(node),
                 "color" : "#00cc00" if node in covered_nodes else "#cceecc",
                 "label" : full_graph.g_nodes[node]["label"]})
         for start,end in full_graph.g_edges.keys():
             assert start in full_graph.module_nodes.keys() or start in full_graph.g_nodes.keys()
             if end in full_graph.module_nodes.keys() or end in full_graph.g_nodes.keys():
                 json_graph["edges"].append({
-                    "id" : start + "??" + end,
+                    "id" : to_relpath(start) + "??" + to_relpath(end),
                     "style" : "include",
-                    "to" : start,
-                    "from" : end,
+                    "to" : to_relpath(start),
+                    "from" : to_relpath(end),
                     "label" : ""})
     return json_graph
 
@@ -446,7 +447,7 @@ if __name__ == "__main__":
     full_graph = Graph()
     fill_graph(mathhub_dir, root_repo, root_doc, full_graph, False)
     
-    json_graph = get_json(covered_graph, full_graph, with_omgroups=(not args.ignoretoc), with_text=(not args.notext))
+    json_graph = get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=(not args.ignoretoc), with_text=(not args.notext))
     
     import json
     with open("graph.json", "w") as fp:
