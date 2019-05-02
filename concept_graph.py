@@ -362,7 +362,7 @@ def get_json(coverd_graph, full_graph, mathhub_dir, with_omgroups=True, with_mod
         for node in full_graph.module_nodes:
             if full_graph.module_nodes[node]["type"] == "text" and not with_text:
                 continue
-            if with_text:
+            if full_graph.module_nodes[node]["type"] == "text":
                 json_graph["nodes"].append({
                         "id" : to_relpath(node),
                         "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
