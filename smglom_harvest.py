@@ -661,8 +661,10 @@ def harvest_mono(string, ctx):
                 ctx.mod_name = params["id"]
                 in_named_module = True
             else:
-                ctx.mod_name = "?"
-                in_named_module = False
+                ctx.log("Warning: Inferring module id from file name", 2, get_file_pos_str(string, match.start()))
+                ctx.mod_name = os.path.split(ctx.file)[1][:-4]
+                # in_named_module = False
+                in_named_module = True
             ctx.mod_type = "module"
         elif token_type == TOKEN_END_MODULE:
             in_module -= 1

@@ -274,11 +274,13 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
         potential_modules = []      # includes text files
         for imp in gatherer.importmhmodules:
-            destnode = imp["dest_path"]
-            if destnode not in blocked_nodes:
-                blocked_nodes.append(destnode)
-                potential_modules.append(destnode)
-            potential_edges.append((imp["path"], destnode))
+            gimports.append((imp["path"], imp["dest_path"]))
+            graph.g_edges[gimports[-1]] = {}
+#             destnode = imp["dest_path"]
+#             if destnode not in blocked_nodes:
+#                 blocked_nodes.append(destnode)
+#                 potential_modules.append(destnode)
+#             potential_edges.append((imp["path"], destnode))
         for gimport in gatherer.gimports:
             gimports.append((gimport["path"],
                              os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex"))
@@ -319,6 +321,11 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
         gimports = []
         for gimport in gatherer.gimports:
             pair = (gimport["path"], os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex")
+            graph.g_edges[pair] = {}
+            if pair[1] not in graph.g_nodes.keys() and pair[1] not in potential_nodes.keys():
+                gimports.append(pair)
+        for imp in gatherer.importmhmodules:
+            pair = (imp["path"], imp["dest_path"])
             graph.g_edges[pair] = {}
             if pair[1] not in graph.g_nodes.keys() and pair[1] not in potential_nodes.keys():
                 gimports.append(pair)
