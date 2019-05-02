@@ -84,7 +84,7 @@ re_arg_core = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
 re_arg = r"\{(?P<arg>" + re_arg_core + r")\}\s*"
 re_param = r"(?:\[(?P<params>[^\]]*)\])?\s*"
 
-re_mhinputref       = re.compile(r"\\mhinputref" + re_param + re_arg)
+re_mhinputref       = re.compile(r"\\mhinputref\*?" + re_param + re_arg)
 re_begin_omgroup    = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
 re_end_omgroup      = re.compile(r"\\end\{omgroup\}")
 re_covereduptohere = re.compile(r"\\covereduptohere")
