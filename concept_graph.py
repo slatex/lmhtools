@@ -334,19 +334,19 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
 
 
-def get_json(coverd_graph, full_graph, mathhub_dir, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
+def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
     json_graph = {"nodes" : [], "edges" : []}
     to_relpath = lambda path : os.path.relpath(path, start=mathhub_dir)
     omgr2id = lambda omgr : to_relpath(omgr[0]) + "?" + omgr[1]
-    covered_nodes = list(covered_graph.omgroup_nodes.keys())
-    covered_nodes += list(covered_graph.module_nodes.keys()) 
-    covered_nodes += list(covered_graph.g_nodes.keys())
+    covered_onodes = list(covered_graph.omgroup_nodes.keys())
+    covered_mnodes = list(covered_graph.module_nodes.keys()) 
+    covered_gnodes = list(covered_graph.g_nodes.keys())
 
     if with_omgroups:
         for node in full_graph.omgroup_nodes.keys():
             json_graph["nodes"].append({
                 "id" : omgr2id(node),
-                "color" : "#222222" if node in covered_nodes else "#cccccc",
+                "color" : "#222222" if node in covered_onodes else "#cccccc",
                 "label" : full_graph.omgroup_nodes[node]["label"] })
         for start,end in full_graph.omgroup_edges:
             json_graph["edges"].append({
@@ -372,12 +372,12 @@ def get_json(coverd_graph, full_graph, mathhub_dir, with_omgroups=True, with_mod
             if full_graph.module_nodes[node]["type"] == "text":
                 json_graph["nodes"].append({
                         "id" : to_relpath(node),
-                        "color" : "#ff8800" if node in covered_nodes else "#ffeecc",
+                        "color" : "#ff8800" if node in covered_mnodes else "#ffeecc",
                         "label" : full_graph.module_nodes[node]["label"]})
             else:
                 json_graph["nodes"].append({
                         "id" : to_relpath(node),
-                        "color" : "#0000ff" if node in covered_nodes else "#ddddff",
+                        "color" : "#0000ff" if node in covered_mnodes else "#ddddff",
                         "label" : full_graph.module_nodes[node]["label"]})
         for start,end in full_graph.module_edges:
             assert start in full_graph.module_nodes
@@ -395,7 +395,7 @@ def get_json(coverd_graph, full_graph, mathhub_dir, with_omgroups=True, with_mod
         for node in full_graph.g_nodes.keys():
             json_graph["nodes"].append({
                 "id" : to_relpath(node),
-                "color" : "#00cc00" if node in covered_nodes else "#cceecc",
+                "color" : "#00cc00" if node in covered_gnodes else "#cceecc",
                 "label" : full_graph.g_nodes[node]["label"]})
         for start,end in full_graph.g_edges.keys():
             assert start in full_graph.module_nodes.keys() or start in full_graph.g_nodes.keys()
