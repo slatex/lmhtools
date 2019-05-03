@@ -634,9 +634,10 @@ def harvest_mono(string, ctx):
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_IMPORTMHMODULE or token_type == TOKEN_USEMHMODULE:
             if not in_module:
-                ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
-                        1, get_file_pos_str(string, match.start()))
-                continue
+                if token_type == TOKEN_USEMHMODULE:
+                    ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
+                            1, get_file_pos_str(string, match.start()))
+                    continue
             params = get_params(match.group("params"))
             repo = ctx.repo
             if "repos" in params:
