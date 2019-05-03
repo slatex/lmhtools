@@ -7,7 +7,7 @@ Very hacky and unpolished script to create a concept graph for the AI lecture
 import sys
 import re
 import os
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 
 
 ### PART 1 : PARSING OMGROUPS AND MHINPUTREFS

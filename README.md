@@ -2,9 +2,9 @@ SMGLOM Scripts
 ===
 
 This folder contains three scripts for analyzing *smglom* based on the *.tex* files in the repositories:
-* `smglom_harvest.py` collects information about modules, symbols, verbalizations, ...
-* `smglom_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
-* `smglom_stats.py` prints statistics about *smglom*
+* `lmh_harvest.py` collects information about modules, symbols, verbalizations, ...
+* `lmh_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
+* `lmh_stats.py` prints statistics about *smglom*
 
 The scripts do not parse *TeX* 'properly'.
 Instead, they use regular expressions, which means that the parsing is very limited
@@ -19,7 +19,7 @@ from [https://gl.mathhub.info/smglom](https://gl.mathhub.info/smglom).
 Note that it does not update (`pull`) the repositories automatically.
 
 
-### smglom_harvest.py
+### lmh_harvest.py
 
 This script contains the code for collecting data.
 The script can be run directly with one of the following commands:
@@ -33,7 +33,7 @@ The script can be run directly with one of the following commands:
 For example, the following command (where `../..` is the folder containing all the repositories):
 
 ```bash
-./smglom_harvest.py defi ../..
+./lmh_harvest.py defi ../..
 ```
 
 Prints lines like the following ones:
@@ -50,12 +50,12 @@ shown during the data gathering.
 For more information run
 
 ```bash
-./smglom_harvest.py --help
+./lmh_harvest.py --help
 ```
 
-### smglom_debug.py
+### lmh_debug.py
 
-This script uses the code from `smglom_harvest.py` to gather data and then checks for
+This script uses the code from `lmh_harvest.py` to gather data and then checks for
 inconsistencies.
 Depending on the verbosity, more or fewer types of errors are displayed.
 
@@ -69,7 +69,7 @@ Other issues that are not really considered errors can be shown with extra comma
 
 Example call:
 ```bash
-./smglom_debug.py -mv -v2 ../..
+./lmh_debug.py -mv -v2 ../..
 ```
 
 `-v2` specifies the verbosity.
@@ -91,16 +91,16 @@ Note that several directories can be passed to the script.
 For more information run
 
 ```bash
-./smglom_debug.py --help
+./lmh_debug.py --help
 ```
 
-### smglom_stats.py
+### lmh_stats.py
 
-This script uses the code from `smglom_harvest.py` to gather data and then prints some statistics.
+This script uses the code from `lmh_harvest.py` to gather data and then prints some statistics.
 
 Example call:
 ```bash
-./smglom_stats.py -v0 ../..
+./lmh_stats.py -v0 ../..
 ```
 
 Note that several directories can be passed to the script.
@@ -114,19 +114,19 @@ that are not declared in signature files.
 For more information run
 
 ```bash
-./smglom_stats.py --help
+./lmh_stats.py --help
 ```
 
 ### Developer notes
 
-The data collection code is in `smglom_harvest.py`.
+The data collection code is in `lmh_harvest.py`.
 For simple scripts (like to generate other statistcs)
 which do not require changes to the data collection,
 this code can be easily imported and used.
 
 Consider the following snippet to get you started:
 ```python
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 
 PATH = "../.."   # directory containing the repositories
 VERBOSITY = 1

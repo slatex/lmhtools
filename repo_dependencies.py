@@ -6,7 +6,7 @@ Script for fixing the repository dependencies in META-INF/MANIFEST.MF
 
 import os
 import re
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 
 TOKEN_MHINPUTREF = -1
 TOKEN_MHGRAPHICS = -2

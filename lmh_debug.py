@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 
 """
-Can be used to find certain kinds of errors in smglom.
+Can be used to find certain kinds of errors in sTeX files in MathHub.
 
-This script analyzes the data collected with smglom_harvet.py
-and checks that the data is 'consisten', meaning that
-for example every symbol has been introduced in a signature
-file etc.
+This script analyzes the data collected with lmh_harvest.py
+and checks that the data is 'consistent', meaning that
+for example every symbol has been introduced in a signature file.
 The verbosity level changes what kind of errors are displayed.
 """
 
 import os
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 
 class EmacsLogger(object):
     def __init__(self, verbosity, path):
         assert 0 <= verbosity <= 4
         self.verbosity = verbosity
         self.fp = open(path, "w")
+        self.something_was_logged = False
 
     def format_filepos(self, path, offset=None, with_col=False):
         # with_col ignored (for emacs we always need it)
@@ -32,6 +32,7 @@ class EmacsLogger(object):
         else:
             self.fp.write(f"{message}\n\n")
 
+        self.something_was_logged = True
         return True
 
     def finish(self):
@@ -74,7 +75,7 @@ def check_data(gatherer, verbosity, logger):
             k = (langf["repo"], langf["mod_name"])
             if k not in sigf_part:
                 logger.log(f"No signature file with name '{langf['mod_name']}' found in repo '{langf['repo']}'.\n" +
-                        "   Signature files for the following modules were found in the repo:", 
+                        "   Signature files for the following modules were found in the repo:\n   " +
                         ", ".join(unique_list([e[1] for e in sigf_part.keys() if e[0] == langf["mod_name"]])),
                         minverbosity=1, filepath=langf['path'])
                 continue
@@ -228,7 +229,7 @@ def check_ma(gatherer, logger):
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Script for finding inconsistencies in SMGloM",
+    parser = argparse.ArgumentParser(description="Script for finding inconsistencies in MathHub",
             epilog="Example call: smglom_debug.py -v3 -mv en de -ma ../..")
     parser.add_argument("-v", "--verbosity", type=int, default=2, choices=range(4), help="the verbosity (default: 2)")
     parser.add_argument("-ma", "--missing-alignments", action="store_true", help="show missing alignments")
@@ -242,22 +243,14 @@ if __name__ == "__main__":
 
     if args.emacs:
         import datetime
-        emacs_bufferpath = "/tmp/smglom_debug-" + str(datetime.datetime.now()).replace(" ", "T")+".log"
+        emacs_bufferpath = "/tmp/lmh_debug-" + str(datetime.datetime.now()).replace(" ", "T")+".log"
         logger = EmacsLogger(verbosity, emacs_bufferpath)
     else:
         logger = harvest.SimpleLogger(verbosity)
 
     logger.log("GATHERING DATA\n", minverbosity=2)
-
-    # determine mathhub folder
-    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
-    while not mathhub_repo.endswith("MathHub"):
-        new = os.path.split(mathhub_repo)[0]
-        if new == mathhub_repo:
-            raise Exception("Failed to infer MathHub directory")
-        mathhub_repo = new
-
-    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_repo)
+    mathhub_dir = harvest.get_mathhub_dir(args.DIRECTORY[0])
+    ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
 

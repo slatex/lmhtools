@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 """
-Can be used to create statistics about smglom.
+Can be used to create statistics about SMGloM.
 
-This script analyzes the data collected with smglom_harvet.py.
+This script analyzes the data collected with lmh_harvest.py.
 A verbosity level can be set to change the what kind of errors
 should be displayed during data collection.
 
 TODO: CREATE TABLE DATA INDEPENDENTLY OF PRESENTATION
 """
 
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 import os
 
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Script for printing SMGloM statistics",
-            epilog="Example call: smglom_stats.py -v0 ../..")
+            epilog="Example call: lmh_stats.py -v0 ../..")
     parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4), help="the verbosity (default: 1)")
     parser.add_argument("-c", "--csv", action="store_true", help="generate a CSV table")
     parser.add_argument("DIRECTORY", nargs="+", help="git repo or higher level directory for which statistics are generated")
@@ -171,20 +171,12 @@ if __name__ == "__main__":
     if args.verbosity >= 2:
         print("GATHERING DATA\n")
     logger = harvest.SimpleLogger(args.verbosity)
-
-    # determine mathhub folder
-    mathhub_dir = os.path.abspath(args.DIRECTORY[0])
-    while not mathhub_dir.endswith("MathHub"):
-        new = os.path.split(mathhub_dir)[0]
-        if new == mathhub_dir:
-            raise Exception("Failed to infer MathHub directory")
-        mathhub_dir = new
-
+    mathhub_dir = harvest.get_mathhub_dir(os.path.abspath(args.DIRECTORY[0]))
     ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
 
-    if args.verbosity >= 2 or ctx.something_was_logged:
+    if args.verbosity >= 2 or logger.something_was_logged:
         print("\n\nSTATISTICS\n")
     print_stats(ctx.gatherer)
 

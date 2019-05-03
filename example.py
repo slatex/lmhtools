@@ -1,4 +1,4 @@
-import smglom_harvest as harvest
+import lmh_harvest as harvest
 import sys
 
 PATH = sys.argv[1]

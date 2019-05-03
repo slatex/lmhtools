@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
 """
-Can be used to harvest data from smglom.
+Can be used to harvest sTeX data from MathHub.
 
-In particular, data is gathered about introduced symbols, their verbalizations,
-trefis, as well as about the nl and signature files.
+It was originally created to gather data about SMGloM,
+but other sTeX files are increasingly supported.
+Data is gathered about introduced symbols, their verbalizations,
+trefis, imports, as well as modules and many more things.
 
-It is used in smglom_stats.py and smglom_debug.py, but it can also be run as
-a stand-alone script, writing the collected data to stdout.
+The main intention of this script is to serve as a library
+for other scripts (e.g. lmh_stats.py and lmh_debug.py).
+Nevertheless, it can also be run in stand-alone mode
+and output the gathered data.
+
 Note that the LaTeX is not parsed properly - instead, regular expressions are
 used, which come with their natural limitiations.
 """
@@ -86,9 +91,12 @@ class SimpleLogger(object):
     def __init__(self, verbosity):
         assert 0 <= verbosity <= 4
         self.verbosity = verbosity
+        self.something_was_logged = False
 
     def format_filepos(self, path, offset=None, with_col=False):
-        return (path + " at " + offset if offset else path) + (":" if with_col else "")
+        # return (path + ":" + offset if offset else path) + (":" if with_col else "")
+        # with_col ignored (for emacs we always need it)
+        return f"{os.path.abspath(path)}:{offset if offset else 1}:"
 
     def log(self, message, minverbosity=1, filepath=None, offset=None):
         if self.verbosity < minverbosity:
@@ -99,6 +107,7 @@ class SimpleLogger(object):
         else:
             print(f"{message}")
 
+        self.something_was_logged = True
         return True
 
 
@@ -106,8 +115,7 @@ class HarvestContext(object):
     """ The HarvestContext keeps (among other things) data about 'what' is currently processed.
         This includes things like the current repository, file name, ...
         It also has a reference to the DataGatherer. """
-    def __init__(self, logger, gatherer, mathhub_path = None):
-
+    def __init__(self, logger, gatherer, mathhub_path = None): 
         self.logger = logger
         self.gatherer = gatherer
 
@@ -118,13 +126,10 @@ class HarvestContext(object):
         self.file = None
         self.mathhub_path = mathhub_path
 
-        self.something_was_logged = False
-
     def log(self, message, minverbosity=1, offsetstr=None, forfile = True):
-        was_logged = self.logger.log(message, minverbosity,
+        self.logger.log(message, minverbosity,
                         filepath=self.file if forfile else None,
                         offset=offsetstr)
-        self.something_was_logged = self.something_was_logged or was_logged
 
 class DataGatherer(object):
     """ The DataGatherer collects all the data from the files """
@@ -132,7 +137,7 @@ class DataGatherer(object):
         self.defis = []
         self.trefis = []
         self.symis = []
-        self.gimports = []
+        self.gimports = []         # also contains guses!
         self.sigfiles = []
         self.langfiles = []
         self.textfiles = []
@@ -628,7 +633,7 @@ def harvest_mono(string, ctx):
         elif token_type == TOKEN_TREF:
             if not in_module:
                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
-                        1, get_file_pos_str(string, match.start()))
+                        2, get_file_pos_str(string, match.start()))
                 continue
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
@@ -636,7 +641,7 @@ def harvest_mono(string, ctx):
             if not in_module:
                 if token_type == TOKEN_USEMHMODULE:
                     ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
-                            1, get_file_pos_str(string, match.start()))
+                            2, get_file_pos_str(string, match.start()))
                     continue
             params = get_params(match.group("params"))
             repo = ctx.repo
@@ -814,12 +819,23 @@ def gather_data_for_all_repos(directory, ctx):
         if os.path.isdir(subdirpath):
             gather_data_for_all_repos(subdirpath, ctx)
 
+def get_mathhub_dir(path, mayContainSymbLinks = True):
+    """ Extracts the MathHub directory from a path """
+    mathhub_dir = os.path.abspath(path)
+    while not mathhub_dir.endswith("MathHub"):
+        new = os.path.split(mathhub_dir)[0]
+        if new == mathhub_dir:  # reached root
+            if mayContainSymbLinks:
+                return get_mathhub_dir(os.path.realpath(path), False)
+            raise Exception("Failed to infer MathHub directory (it is required that a parent directory called 'MathHub' exists)")
+        mathhub_dir = new
+    return mathhub_dir
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Script for gathering SMGloM data",
-            epilog="Example call: smglom_harvest.py -v1 defi ../..")
+    parser = argparse.ArgumentParser(description="Script for gathering MathHub data",
+            epilog="Example call: lmh_harvest.py -v1 defi ../..")
     parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4),
             help="the verbosity (default: 1)")
     parser.add_argument("COMMAND", choices=["repo", "defi", "trefi", "symi", "sigfile", "langfile"],
@@ -832,20 +848,14 @@ if __name__ == "__main__":
     if verbosity >= 2:
         print("GATHERING DATA\n")
 
-    # determine mathhub folder
-    mathhub_repo = os.path.abspath(args.DIRECTORY[0])
-    while not mathhub_repo.endswith("MathHub"):
-        new = os.path.split(mathhub_repo)[0]
-        if new == mathhub_repo:
-            raise Exception("Failed to infer MathHub directory")
-        mathhub_repo = new
-
-    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer(), mathhub_repo)
+    mathhub_dir = get_mathhub_dir(args.DIRECTORY[0])
+    logger = SimpleLogger(verbosity)
+    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer(), mathhub_dir)
 
     for directory in args.DIRECTORY:
         gather_data_for_all_repos(directory, ctx)
 
-    if verbosity >= 2 or ctx.something_was_logged:
+    if verbosity >= 2 or logger.something_was_logged:
         print("\n\nRESULTS\n")
 
     command = args.COMMAND
