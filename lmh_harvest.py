@@ -604,7 +604,7 @@ def harvest_nl(string, name, lang, ctx):
 
     ctx.gatherer.push_langfile(ctx)
 
-def harvest_mono(string, ctx):
+def harvest_mono(string, name, ctx):
     """ harvests the data from file content """
 
     tokens = parse(string, regexes)
@@ -639,7 +639,7 @@ def harvest_mono(string, ctx):
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_IMPORTMHMODULE or token_type == TOKEN_USEMHMODULE:
             if not in_module:
-                if token_type == TOKEN_USEMHMODULE:
+                if token_type == TOKEN_IMPORTMHMODULE:
                     ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
                             2, get_file_pos_str(string, match.start()))
                     continue
@@ -666,6 +666,8 @@ def harvest_mono(string, ctx):
             if "id" in params:
                 ctx.mod_name = params["id"]
                 in_named_module = True
+                if ctx.mod_name != name:
+                    ctx.log(f"Name '{match.group('id')}' does not match file name", 2, get_file_pos_str(string, match.start()))
             else:
                 ctx.log("Warning: Inferring module id from file name", 2, get_file_pos_str(string, match.start()))
                 ctx.mod_name = os.path.split(ctx.file)[1][:-4]
@@ -782,7 +784,7 @@ def harvest_file(root, file_name, ctx):
             elif file_type == "sig":
                 harvest_sig(string, name, ctx)
             elif file_type == "mono":
-                harvest_mono(string, ctx)
+                harvest_mono(string, name, ctx)
             else:
                 assert file_type == "nl" and not lang
                 ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
