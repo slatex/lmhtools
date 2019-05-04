@@ -325,7 +325,7 @@ re_begin_modsig = re.compile(
         r"\\begin\s*"
         r"\{modsig\}\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"         # parameters
-        r"\{(?P<name>[\w-]+)\}"                   # name
+        r"\{(?P<name>[\w\.-]+)\}"                   # name
         )
 
 re_end_modsig = re.compile(
@@ -474,7 +474,7 @@ def harvest_sig(string, name, ctx):
     for (match, token_type) in tokens:
         if token_type == TOKEN_SYM:
             if required_end_sig == None:
-                ctx.log(f"Require \\begin{modsig} or \\begin{gviewsig} before token: '{match.group(0)}'",
+                ctx.log(f"Require \\begin{{modsig}} or \\begin{{gviewsig}} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
 
@@ -667,7 +667,7 @@ def harvest_mono(string, name, ctx):
                 ctx.mod_name = params["id"]
                 in_named_module = True
                 if ctx.mod_name != name:
-                    ctx.log(f"Name '{match.group('id')}' does not match file name", 2, get_file_pos_str(string, match.start()))
+                    ctx.log(f"Name '{params['id']}' does not match file name", 2, get_file_pos_str(string, match.start()))
             else:
                 ctx.log("Warning: Inferring module id from file name", 2, get_file_pos_str(string, match.start()))
                 ctx.mod_name = os.path.split(ctx.file)[1][:-4]
@@ -761,6 +761,9 @@ def harvest_file(root, file_name, ctx):
         return
     name = m.group("name")
     lang = m.group("lang")
+    full_name = name
+    if lang: full_name += "." + lang
+
     file_path = os.path.join(root, f"{name}.{lang}.tex" if lang else f"{name}.tex")
     if name in ["all", "localpaths"]:
         return
@@ -775,19 +778,20 @@ def harvest_file(root, file_name, ctx):
             if not file_type:
                 ctx.mod_type = "text"
                 harvest_text(string, ctx)
+            elif file_type == "nl":
+                if lang:
+                    harvest_nl(string, name, lang, ctx)
+                else:
+                    ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
+            elif lang and file_type != "nl" and len(lang) in [2,3]:
+                ctx.log("Doesn't appear to be a language file - skipping it", 2)
                 return
-            if lang:
-                if file_type != "nl":
-                    ctx.log("Doesn't appear to be a language file - skipping it", 2)
-                    return
-                harvest_nl(string, name, lang, ctx)
             elif file_type == "sig":
-                harvest_sig(string, name, ctx)
+                harvest_sig(string, full_name, ctx)
             elif file_type == "mono":
-                harvest_mono(string, name, ctx)
+                harvest_mono(string, full_name, ctx)
             else:
-                assert file_type == "nl" and not lang
-                ctx.log("It appears to be a language file, but the filename doesn't indicate that", 2)
+                raise Exception("An internal error occured while trying to identify the file")
         except Exception as ex:
             ctx.log(f"An internal error occured during processing:\n'{exception_to_string(ex)}'", 0)
             return
