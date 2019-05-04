@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Very hacky and unpolished script to create a concept graph for the AI lecture
+Very hacky and unpolished script to create a concept graph for sTeX-based lectures.
 """
 
 import sys

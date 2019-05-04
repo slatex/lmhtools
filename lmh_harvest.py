@@ -835,7 +835,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Script for gathering MathHub data",
-            epilog="Example call: lmh_harvest.py -v1 defi ../..")
+            epilog="Example call: lmh_harvest.py -v1 defi /path/to/MathHub/smglom")
     parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4),
             help="the verbosity (default: 1)")
     parser.add_argument("COMMAND", choices=["repo", "defi", "trefi", "symi", "sigfile", "langfile"],

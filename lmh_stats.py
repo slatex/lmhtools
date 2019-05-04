@@ -162,7 +162,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Script for printing SMGloM statistics",
-            epilog="Example call: lmh_stats.py -v0 ../..")
+            epilog="Example call: lmh_stats.py -v0 /path/to/MathHub/smglom")
     parser.add_argument("-v", "--verbosity", type=int, default=1, choices=range(4), help="the verbosity (default: 1)")
     parser.add_argument("-c", "--csv", action="store_true", help="generate a CSV table")
     parser.add_argument("DIRECTORY", nargs="+", help="git repo or higher level directory for which statistics are generated")

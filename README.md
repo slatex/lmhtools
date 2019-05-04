@@ -1,10 +1,11 @@
-SMGLOM Scripts
+LMH Scripts
 ===
 
-This folder contains three scripts for analyzing *smglom* based on the *.tex* files in the repositories:
+This folder contains three scripts for analyzing MathHub based on the *.tex* files in the repositories:
 * `lmh_harvest.py` collects information about modules, symbols, verbalizations, ...
 * `lmh_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
 * `lmh_stats.py` prints statistics about *smglom*
+* `concept_graph.py` creates the concept graph of a lecture for TGView
 
 The scripts do not parse *TeX* 'properly'.
 Instead, they use regular expressions, which means that the parsing is very limited
@@ -17,41 +18,10 @@ No special libraries should be necessary.
 The scripts are run on a local folder that contains the required repositories
 from [https://gl.mathhub.info/smglom](https://gl.mathhub.info/smglom).
 Note that it does not update (`pull`) the repositories automatically.
+The scripts may require that the repositories follow the typical
+MathHub directory structure (in particular, they should lie in a directory
+called *MathHub*).
 
-
-### lmh_harvest.py
-
-This script contains the code for collecting data.
-The script can be run directly with one of the following commands:
-* `repo`: Lists all repositories found.
-* `defi`: Lists all the verbalizations found.
-* `trefi`: Lists all the `trefi`s found.
-* `symi`: Lists all the symbol declarations/definitions found.
-* `sigfile`: Lists all the signature files found.
-* `langfile`: Lists all the language files found.
-
-For example, the following command (where `../..` is the folder containing all the repositories):
-
-```bash
-./lmh_harvest.py defi ../..
-```
-
-Prints lines like the following ones:
-
-```
-../../mv/source/piecewise.de.tex at 3:28: piecewise?defined-piecewise de "st"uckweise definiert"
-../../mv/source/structure.en.tex at 3:9: structure?structure en "mathematical structure"
-../../mv/source/structure.en.tex at 4:7: structure?component en "component"
-```
-
-The verbosity can be changed with a command-line option (e.g. `-v1`) to reduce the number of errors
-shown during the data gathering.
-
-For more information run
-
-```bash
-./lmh_harvest.py --help
-```
 
 ### lmh_debug.py
 
@@ -69,21 +39,21 @@ Other issues that are not really considered errors can be shown with extra comma
 
 Example call:
 ```bash
-./lmh_debug.py -mv -v2 ../..
+./lmh_debug.py -mv -v2 /path/to/MathHub/smglom
 ```
 
 `-v2` specifies the verbosity.
 The output contains general errors like:
 ```
 Verbalization 'multiset' provided multiple times:
-    ../../sets/source/multiset.en.tex at 4:4
-    ../../sets/source/multiset.en.tex at 4:73
-    ../../sets/source/multiset.en.tex at 8:96
+    /path/to/MathHub/smglom/sets/source/multiset.en.tex at 4:4
+    /path/to/MathHub/smglom/sets/source/multiset.en.tex at 4:73
+    /path/to/MathHub/smglom/sets/source/multiset.en.tex at 8:96
 ```
 as well as missing verbalizations, because of the `-im` option:
 ```
-../../mv/source/defeq.en.tex: Missing verbalizations for the following symbols: defequiv, eqdef
-../../mv/source/mv.de.tex: Missing verbalizations for the following symbols: biimpl, conj, disj, exis, exisS, foral, foralS, imply, negate, nexis, nexisS, uexis, uexisS
+/path/to/MathHub/smglom/mv/source/defeq.en.tex: Missing verbalizations for the following symbols: defequiv, eqdef
+/path/to/MathHub/smglom/mv/source/mv.de.tex: Missing verbalizations for the following symbols: biimpl, conj, disj, exis, exisS, foral, foralS, imply, negate, nexis, nexisS, uexis, uexisS
 ```
 
 Note that several directories can be passed to the script.
@@ -100,7 +70,7 @@ This script uses the code from `lmh_harvest.py` to gather data and then prints s
 
 Example call:
 ```bash
-./lmh_stats.py -v0 ../..
+./lmh_stats.py -v0 /path/to/MathHub/smglom
 ```
 
 Note that several directories can be passed to the script.
@@ -116,6 +86,52 @@ For more information run
 ```bash
 ./lmh_stats.py --help
 ```
+
+### concept_graph.py
+
+This script is can be used to generate [TGView](https://github.com/uniformal/tgview) concept graphs of
+sTeX-based lectures.
+It is still under development.
+
+Example call:
+```bash
+./concept_graph.py /path/to/MathHub/MiKoMH/AI/source/course/notes/notes.tex
+```
+
+The resulting graph is stored in the file `graph.json`.
+
+### lmh_harvest.py
+
+This script contains the code for collecting data.
+The script can be run directly with one of the following commands:
+* `repo`: Lists all repositories found.
+* `defi`: Lists all the verbalizations found.
+* `trefi`: Lists all the `trefi`s found.
+* `symi`: Lists all the symbol declarations/definitions found.
+* `sigfile`: Lists all the signature files found.
+* `langfile`: Lists all the language files found.
+
+For example, the following command
+```bash
+./lmh_harvest.py defi /path/to/MathHub/smglom
+``` 
+prints lines like the following ones:
+
+```
+/path/to/MathHub/smglom/mv/source/piecewise.de.tex at 3:28: piecewise?defined-piecewise de "st"uckweise definiert"
+/path/to/MathHub/smglom/mv/source/structure.en.tex at 3:9: structure?structure en "mathematical structure"
+/path/to/MathHub/smglom/mv/source/structure.en.tex at 4:7: structure?component en "component"
+```
+
+The verbosity can be changed with a command-line option (e.g. `-v1`) to reduce the number of errors
+shown during the data gathering.
+
+For more information run
+
+```bash
+./lmh_harvest.py --help
+```
+
 
 ### Developer notes
 
@@ -143,4 +159,4 @@ print(gatherer.sigfiles)
 print(gatherer.langfiles)
 ```
 
-For questions and bug reports, feel free to reach out to [Jan Frederik schaefer](https://kwarc.info/people/jfschaefer/).
+Please make a GitHub issue if you encounter any problems. And, of course, feel free to reach out to us!
