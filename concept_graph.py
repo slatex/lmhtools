@@ -402,7 +402,7 @@ def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_mo
             if end in full_graph.module_nodes.keys() or end in full_graph.g_nodes.keys():
                 json_graph["edges"].append({
                     "id" : to_relpath(start) + "??" + to_relpath(end),
-                    "style" : "view",
+                    "style" : "uses",
                     "to" : to_relpath(start),
                     "from" : to_relpath(end),
                     "label" : ""})
