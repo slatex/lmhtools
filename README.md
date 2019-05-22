@@ -1,7 +1,7 @@
 LMH Scripts
 ===
 
-This folder contains three scripts for analyzing MathHub based on the *.tex* files in the repositories:
+This folder contains four scripts for analyzing MathHub based on the *.tex* files in the repositories:
 * `lmh_harvest.py` collects information about modules, symbols, verbalizations, ...
 * `lmh_debug.py` looks for inconsistencies in the data and prints them (e.g. verbalizations for non-existent symbols)
 * `lmh_stats.py` prints statistics about *smglom*
