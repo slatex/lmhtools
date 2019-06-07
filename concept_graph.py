@@ -274,13 +274,11 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
         potential_modules = []      # includes text files
         for imp in gatherer.importmhmodules:
-            gimports.append((imp["path"], imp["dest_path"]))
-            graph.g_edges[gimports[-1]] = {}
-#             destnode = imp["dest_path"]
-#             if destnode not in blocked_nodes:
-#                 blocked_nodes.append(destnode)
-#                 potential_modules.append(destnode)
-#             potential_edges.append((imp["path"], destnode))
+            destnode = imp["dest_path"]
+            if destnode not in blocked_nodes:
+                blocked_nodes.append(destnode)
+                potential_modules.append(destnode)
+            potential_edges.append((imp["path"], destnode))
         for gimport in gatherer.gimports:
             gimports.append((gimport["path"],
                              os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex"))
@@ -399,6 +397,8 @@ def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_mo
                 "label" : full_graph.g_nodes[node]["label"]})
         for start,end in full_graph.g_edges.keys():
             assert start in full_graph.module_nodes.keys() or start in full_graph.g_nodes.keys()
+            if start in full_graph.module_nodes.keys() and full_graph.module_nodes[start]["type"]=="text" and not with_text:
+                continue
             if end in full_graph.module_nodes.keys() or end in full_graph.g_nodes.keys():
                 json_graph["edges"].append({
                     "id" : to_relpath(start) + "??" + to_relpath(end),
