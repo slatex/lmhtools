@@ -144,6 +144,7 @@ class DataGatherer(object):
         self.modules = []
         self.repos = []
         self.importmhmodules = []  # also contains usemhmodules!
+        self.mhinputrefs = []      # also contains inputs!
 
     def push_repo(self, namespace, ctx):
         self.repos.append({
@@ -233,6 +234,17 @@ class DataGatherer(object):
             }
         )
 
+    def push_mhinputref(self, repo, file_, ctx):  # also for input
+        self.mhinputrefs.append(
+            {
+                "mod_name" : ctx.mod_name,  # can be None
+                "repo" : ctx.repo,
+                "path" : ctx.file,
+                "dest_repo" : repo,
+                "dest_path" : file_,
+            }
+        )
+
     def push_textfile(self, ctx):
         self.textfiles.append(
             {
@@ -274,6 +286,7 @@ TOKEN_IMPORTMHMODULE = 14
 TOKEN_USEMHMODULE    = 15
 TOKEN_GIMPORT        = 16
 TOKEN_GUSE           = 17
+TOKEN_MHINPUTREF     = 18
 
 re_begin_mhmodnl = re.compile(
         r"\\begin\s*"
@@ -398,6 +411,12 @@ re_guse = re.compile(
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
+re_mhinputref = re.compile(
+        r"\\(mhinputref|input)\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
 regexes = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -417,6 +436,7 @@ regexes = [
         (re_usemhmodule, TOKEN_USEMHMODULE),
         (re_gimport, TOKEN_GIMPORT),
         (re_guse, TOKEN_GUSE),
+        (re_mhinputref, TOKEN_MHINPUTREF),
         ]
 
 def get_noverb(param_dict):
@@ -637,7 +657,7 @@ def harvest_mono(string, name, ctx):
                 continue
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
-        elif token_type == TOKEN_IMPORTMHMODULE or token_type == TOKEN_USEMHMODULE:
+        elif token_type in [TOKEN_IMPORTMHMODULE, TOKEN_USEMHMODULE, TOKEN_MHINPUTREF]:
             if not in_module:
                 if token_type == TOKEN_IMPORTMHMODULE:
                     ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
@@ -652,7 +672,10 @@ def harvest_mono(string, name, ctx):
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
-            ctx.gatherer.push_importmhmodule(repo, path, ctx)
+            if token_type in [TOKEN_IMPORTMHMODULE, TOKEN_USEMHMODULE]:
+                ctx.gatherer.push_importmhmodule(repo, path, ctx)
+            elif token_type == TOKEN_MHINPUTREF:
+                ctx.gatherer.push_mhinputref(repo, path, ctx)
         elif token_type == TOKEN_BEGIN_MODULE:
             if in_module:
                 ctx.log("Nested modules are not yet fully supported",
@@ -708,7 +731,7 @@ def harvest_text(string, ctx):
             #        3, get_file_pos_str(string, match.start()))
             get_args(match, False, string, ctx)    # print error messages for arity violations
             ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
-        elif token_type == TOKEN_USEMHMODULE:
+        elif token_type == TOKEN_USEMHMODULE or token_type == TOKEN_MHINPUTREF:
             params = get_params(match.group("params"))
             repo = ctx.repo
             if "repos" in params:
@@ -718,7 +741,10 @@ def harvest_text(string, ctx):
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
-            ctx.gatherer.push_importmhmodule(repo, path, ctx)
+            if token_type == TOKEN_USEMHMODULE:
+                ctx.gatherer.push_importmhmodule(repo, path, ctx)
+            elif token_type == TOKEN_MHINPUTREF:
+                ctx.gatherer.push_mhinputref(repo, path, ctx)
         elif token_type == TOKEN_GUSE:
             repo = ctx.repo
             repo_param = match.group("params")

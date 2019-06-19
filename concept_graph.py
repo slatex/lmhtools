@@ -84,7 +84,7 @@ re_arg_core = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
 re_arg = r"\{(?P<arg>" + re_arg_core + r")\}\s*"
 re_param = r"(?:\[(?P<params>[^\]]*)\])?\s*"
 
-re_mhinputref       = re.compile(r"\\mhinputref\*?" + re_param + re_arg)
+re_mhinputref       = re.compile(r"\\(mhinputref|input)\*?" + re_param + re_arg)
 re_begin_omgroup    = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
 re_end_omgroup      = re.compile(r"\\end\{omgroup\}")
 re_covereduptohere = re.compile(r"\\covereduptohere")
@@ -273,12 +273,15 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
         assert not gatherer.langfiles
 
         potential_modules = []      # includes text files
-        for imp in gatherer.importmhmodules:
-            destnode = imp["dest_path"]
+        for inp in gatherer.mhinputrefs:
+            destnode = inp["dest_path"]
             if destnode not in blocked_nodes:
                 blocked_nodes.append(destnode)
                 potential_modules.append(destnode)
-            potential_edges.append((imp["path"], destnode))
+            potential_edges.append((inp["path"], destnode))
+        for imp in gatherer.importmhmodules:
+            gimports.append((imp["path"], imp["dest_path"]))
+            graph.g_edges[gimports[-1]] = {}
         for gimport in gatherer.gimports:
             gimports.append((gimport["path"],
                              os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex"))
