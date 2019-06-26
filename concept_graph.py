@@ -309,7 +309,7 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
                 try:
                     harvest.harvest_file(root, filename, context)
                 except FileNotFoundError:
-                    print("couldn't find '" + path + "'")
+                    print("couldn't find '" + dest + "'")
         assert not gatherer.langfiles
         assert not gatherer.textfiles
         for mod in gatherer.modules + gatherer.sigfiles:
