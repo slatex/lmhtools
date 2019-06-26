@@ -176,10 +176,10 @@ class Graph(object):
         self.omgroup_nodes = {}    # (file, title) : { }
         self.omgroup_edges = {}
         self.module_nodes = {}
-        self.module_edges = {}
+        self.module_edges = {}  # \input edges etc
         self.omgroup2module_edges = {}
         self.g_nodes = {}
-        self.g_edges = {}
+        self.g_edges = {}  # \importmhmodule, \guse, ... edges
 
 def add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered):
     # gather data
@@ -281,11 +281,12 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
             potential_edges.append((inp["path"], destnode))
         for imp in gatherer.importmhmodules:
             gimports.append((imp["path"], imp["dest_path"]))
-            graph.g_edges[gimports[-1]] = {}
+            graph.g_edges[gimports[-1]] = {"type":{"importmhmodule":"import","usemhmodule":"use"}[imp["type"]]}
         for gimport in gatherer.gimports:
             gimports.append((gimport["path"],
                              os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex"))
-            graph.g_edges[gimports[-1]] = {}
+            graph.g_edges[gimports[-1]] = {"type":{"gimport":"import","guse":"use"}[gimport["type"]]}
+
 
     for node in potential_nodes.keys():
         graph.module_nodes[node] = {
@@ -322,12 +323,12 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
         gimports = []
         for gimport in gatherer.gimports:
             pair = (gimport["path"], os.path.join(gimport["dest_repo"], "source", gimport["dest_mod"]) + ".tex")
-            graph.g_edges[pair] = {}
+            graph.g_edges[pair] = {"type":{"gimport":"import","guse":"use"}[gimport["type"]]}
             if pair[1] not in graph.g_nodes.keys() and pair[1] not in potential_nodes.keys():
                 gimports.append(pair)
         for imp in gatherer.importmhmodules:
             pair = (imp["path"], imp["dest_path"])
-            graph.g_edges[pair] = {}
+            graph.g_edges[pair] = {"type":{"importmhmodule":"import","usemhmodule":"use"}[imp["type"]]}
             if pair[1] not in graph.g_nodes.keys() and pair[1] not in potential_nodes.keys():
                 gimports.append(pair)
 
@@ -335,7 +336,7 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
 
 
 
-def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_modules=True, with_gimports=True, with_text=True):
+def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_modules=True, with_g_edges=True, with_text=True):
     json_graph = {"nodes" : [], "edges" : []}
     to_relpath = lambda path : os.path.relpath(path, start=mathhub_dir)
     omgr2id = lambda omgr : to_relpath(omgr[0]) + "?" + omgr[1]
@@ -392,7 +393,7 @@ def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_mo
                 "from" : to_relpath(end),
                 "label" : ""})
 
-    if with_gimports:
+    if with_g_edges:
         for node in full_graph.g_nodes.keys():
             json_graph["nodes"].append({
                 "id" : to_relpath(node),
@@ -405,7 +406,7 @@ def get_json(covered_graph, full_graph, mathhub_dir, with_omgroups=True, with_mo
             if end in full_graph.module_nodes.keys() or end in full_graph.g_nodes.keys():
                 json_graph["edges"].append({
                     "id" : to_relpath(start) + "??" + to_relpath(end),
-                    "style" : "uses",
+                    "style" : {"import":"include","use":"uses"}[full_graph.g_edges[(start,end)]["type"]],
                     "to" : to_relpath(start),
                     "from" : to_relpath(end),
                     "label" : ""})

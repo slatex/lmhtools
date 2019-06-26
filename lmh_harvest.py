@@ -223,12 +223,13 @@ class DataGatherer(object):
             }
         )
 
-    def push_importmhmodule(self, repo, file_, ctx):  # also for usemhmodule
+    def push_importmhmodule(self, repo, file_, type_, ctx):  # also for usemhmodule
         self.importmhmodules.append(
             {
                 "mod_name" : ctx.mod_name,  # can be None
                 "repo" : ctx.repo,
                 "path" : ctx.file,
+                "type" : type_,    # "usemhmodule" or "importmhmodule"
                 "dest_repo" : repo,
                 "dest_path" : file_,
             }
@@ -674,8 +675,10 @@ def harvest_mono(string, name, ctx):
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
-            if token_type in [TOKEN_IMPORTMHMODULE, TOKEN_USEMHMODULE]:
-                ctx.gatherer.push_importmhmodule(repo, path, ctx)
+            if token_type == TOKEN_IMPORTMHMODULE:
+                ctx.gatherer.push_importmhmodule(repo, path, "importmhmodule", ctx)
+            elif token_type == TOKEN_USEMHMODULE:
+                ctx.gatherer.push_importmhmodule(repo, path, "usemhmodule", ctx)
             elif token_type == TOKEN_MHINPUTREF:
                 ctx.gatherer.push_mhinputref(repo, path, ctx)
         elif token_type == TOKEN_BEGIN_MODULE:
@@ -710,7 +713,7 @@ def harvest_mono(string, name, ctx):
             if repo_param:
                 repo = os.path.join(ctx.mathhub_path, repo_param)
             mod_name = match.group("arg")
-            ctx.gatherer.push_gimport(repo, mod_name, {TOKEN_GUSE : "guse", TOKEN_GIMPORT : "gimport"}, ctx)
+            ctx.gatherer.push_gimport(repo, mod_name, {TOKEN_GUSE : "guse", TOKEN_GIMPORT : "gimport"}[token_type], ctx)
         else:
             if token_type == TOKEN_SYMDEF and in_named_module:
                 continue
@@ -746,7 +749,7 @@ def harvest_text(string, ctx):
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
             if token_type == TOKEN_USEMHMODULE:
-                ctx.gatherer.push_importmhmodule(repo, path, ctx)
+                ctx.gatherer.push_importmhmodule(repo, path, "usemhmodule", ctx)
             elif token_type == TOKEN_MHINPUTREF:
                 ctx.gatherer.push_mhinputref(repo, path, ctx)
         elif token_type == TOKEN_GUSE:
