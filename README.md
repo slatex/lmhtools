@@ -100,6 +100,20 @@ Example call:
 
 The resulting graph is stored in the file `graph.json`.
 
+### make_dictionary.py
+
+This script creates a (multi-lingual) dictionary.
+
+For example,
+```bash
+./make_dictionary.py en,de,ro /path/to/MathHub/smglom > out.tex
+```
+creates a dictionary from English to German and Romanian (which is written as a latex file to `out.tex`).
+You can also specify individual repositories to be included:
+```bash
+./make_dictionary.py en,de,ro /path/to/MathHub/smglom/numbers /path/to/MathHub/smglom/sets > out.tex
+```
+
 ### lmh_harvest.py
 
 This script contains the code for collecting data.
