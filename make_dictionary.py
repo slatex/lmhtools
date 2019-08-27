@@ -22,8 +22,15 @@ class Dictionary(object):
     def getEntries(self):
         allSymbols = set([symb for language in self.languages for symb in self.data[language]])
         # only symbols with entry in keylang are relevant
-        relevantSymbols = [symb for symb in allSymbols if symb in self.data[self.keylang]]
-        return sorted([[", ".join(self.data[lang][symb]) if symb in self.data[lang] else "" for lang in self.languages] for symb in relevantSymbols])
+        # relevantSymbols = [symb for symb in allSymbols if symb in self.data[self.keylang]]
+        # return sorted([[", ".join(self.data[lang][symb]) if symb in self.data[lang] else "" for lang in self.languages] for symb in relevantSymbols])
+        entries = []
+        for symb in allSymbols:
+            if symb not in self.data[self.keylang]:
+                continue
+            for keyString in self.data[self.keylang][symb]:
+                entries.append([keyString] + [", ".join(self.data[lang][symb]) if symb in self.data[lang] else "" for lang in self.languages[1:]])
+        return sorted(entries, key=lambda e : e[0].lower())
 
 def makeDictionary(gatherer, languages):
     dictionary = Dictionary(languages)
@@ -43,6 +50,24 @@ def printAsTxt(dictionary):
     for entry in dictionary.getEntries():
         print("".join([e.ljust(width) for e in entry]))
 
+def printAsLaTeX(dictionary):
+    assert len(dictionary.languages) > 0
+    print(r"""\documentclass{article}
+\usepackage{fullpage}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\title{Multi-Lingual Dictionary (Auto-Generated)}
+\begin{document}
+\maketitle""")
+    print(r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}")
+    print("&".join(dictionary.languages) + r"\\")
+    print(r"\hline")
+    for entry in dictionary.getEntries():
+        print("&".join(entry) + r"\\")
+    print(r"""\end{longtable}
+\end{document}""")
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -61,5 +86,6 @@ if __name__ == "__main__":
         harvest.gather_data_for_all_repos(directory, ctx)
     
     dictionary = makeDictionary(ctx.gatherer, languages)
-    printAsTxt(dictionary)
+    # printAsTxt(dictionary)
+    printAsLaTeX(dictionary)
 
