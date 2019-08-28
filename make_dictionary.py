@@ -92,8 +92,8 @@ def printLaTeXHeader(dictionary):
     #    print(r"\usepackage{CJKutf8}")
     #    print(r"\usepackage[UTF8]{ctex}")
         print(r"\usepackage{fontspec}")
-        print(r"\setmainfont[AutoFakeBold=4]{FandolFang}")
-        print(r'\XeTeXlinebreaklocale "zh"')
+        # print(r"\setmainfont[AutoFakeBold=4]{FandolFang}")
+        # print(r'\XeTeXlinebreaklocale "zh"')
     print(r"\usepackage{longtable}")
     print(r"\title{Multi-Lingual Dictionary (Auto-Generated)\\")
     print(r"\small{Languages: " + ", ".join(langLabels) + r"}\\")
@@ -124,8 +124,9 @@ def printAsLaTeX(dictionary):
                     c = entry.gimport + c
                 if l in LANG2BABEL:
                     newcells += ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c]
-#                elif l in ["zhs", "zht"]:
-#                    newcells += ["\\begin{CJK}{UTF8}{gbsn}" + c + "\\end{CJK}"]
+                elif l in ["zhs", "zht"]:
+                    # newcells += ["\\begin{CJK}{UTF8}{gbsn}" + c + "\\end{CJK}"]
+                    newcells += [r"{\fontspec[AutoFakeBold=4]{FandolFang}" + c + "}"]
                 else:
                     newcells += [c]
             print(" & ".join(newcells) + r"\\")
