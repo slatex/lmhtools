@@ -21,7 +21,6 @@ class Dictionary(object):
     def __init__(self, languages, mathhub_dir):
         self.languages = languages
         self.mathhub_dir = mathhub_dir
-        self.keylang = languages[0]
         self.data = {l : {} for l in languages}
     
     def addEntry(self, symbol, language, string):
@@ -30,15 +29,15 @@ class Dictionary(object):
             self.data[language][symbol] = []
         self.data[language][symbol].append(string)
 
-    def getEntries(self):
+    def getEntries(self, keylang, otherlangs):
         allSymbols = set([symb for language in self.languages for symb in self.data[language]])
 
         entries = []
         for symb in allSymbols:
-            if symb not in self.data[self.keylang]:
+            if symb not in self.data[keylang]:
                 continue
-            for keyString in self.data[self.keylang][symb]:
-                entries.append(Entry(keyString, [", ".join(self.data[lang][symb]) if symb in self.data[lang] else "" for lang in self.languages[1:]], symb))
+            for keyString in self.data[keylang][symb]:
+                entries.append(Entry(keyString, [", ".join(self.data[lang][symb]) if symb in self.data[lang] else "" for lang in otherlangs], symb))
         return sorted(entries, key=lambda e : e.keystr.lower())
 
 class Entry(object):
@@ -66,9 +65,9 @@ def makeDictionary(mathhub_dir, gatherer, languages):
 def getRepos(entries):
     return sorted(list(set([entry.repo for entry in entries])))
 
-def printAsLaTeX(dictionary):
-    assert len(dictionary.languages) > 0
-    entries = dictionary.getEntries()
+def printLaTeXHeader(dictionary):
+    # TODO: we only calculate entries here to extract repos (unnecessary!)
+    entries = dictionary.getEntries(dictionary.languages[0], dictionary.languages[1:])
     langLabels = [(LANG2BABEL[l] if l in LANG2BABEL else l).capitalize() for l in dictionary.languages]
 
     print(r"\documentclass{article}")
@@ -77,25 +76,39 @@ def printAsLaTeX(dictionary):
     print(r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}")
     print(r"\usepackage{fullpage}")
     print(r"\usepackage[utf8]{inputenc}")
-    print(r"\usepackage[main=" + ",".join([LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]) + "]{babel}")
+    #print(r"\usepackage[main=" + ",".join([LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]) + "]{babel}")
+    babellangs = [LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]
+    if "english" in babellangs:
+        babellangs.remove("english")
+    print(r"\usepackage[main=english," + ",".join(babellangs) + "]{babel}")
     print(r"\usepackage{longtable}")
     print(r"\title{Multi-Lingual Dictionary (Auto-Generated)\\")
-    print(r"\small{From " + langLabels[0] + " to " + ", ".join(langLabels[1:]) + r"}\\")
+    print(r"\small{Languages: " + ", ".join(langLabels) + r"}\\")
     print(r"\small{Topics: " + ", ".join(sorted([r.split("/")[-1].capitalize() for r in getRepos(entries)])) + r"}}")
     print(r"\begin{document}")
     print(r"\maketitle")
-    print(r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}")
-    print("&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\")
-    print(r"\hline")
-    for entry in entries:
-        # print(entry.gimport)
-        cells = [entry.keystr] + entry.transl
-        cells = ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c if l in LANG2BABEL else c for (l,c) in zip(dictionary.languages, cells)]
-        # only have gimport if $ in entry (to avoid unnecessary gimports, which significantly slow down the compilation)
-        cells = [entry.gimport + c if "$" in c else c for c in cells]
-        print("&".join(cells) + r"\\")
-    print(r"""\end{longtable}
-\end{document}""")
+    print(r"\tableofcontents")
+
+def printAsLaTeX(dictionary):
+    assert len(dictionary.languages) > 0
+    printLaTeXHeader(dictionary)
+    for keylang in dictionary.languages:
+        otherlangs = dictionary.languages[:]
+        otherlangs.remove(keylang)
+        langLabels = [(LANG2BABEL[l] if l in LANG2BABEL else l).capitalize() for l in [keylang] + otherlangs]
+        print(r"\section{" + langLabels[0] + "}")
+        print(r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}")
+        print("&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\")
+        print(r"\hline")
+        for entry in dictionary.getEntries(keylang, otherlangs):
+            # print(entry.gimport)
+            cells = [entry.keystr] + entry.transl
+            cells = ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c if l in LANG2BABEL else c for (l,c) in zip([keylang] + otherlangs, cells)]
+            # only have gimport if $ in entry (to avoid unnecessary gimports, which significantly slow down the compilation)
+            cells = [entry.gimport + c if "$" in c else c for c in cells]
+            print("&".join(cells) + r"\\")
+        print(r"\end{longtable}")
+    print(r"\end{document}""")
 
 
 if __name__ == "__main__":
