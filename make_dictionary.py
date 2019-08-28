@@ -9,8 +9,15 @@ LANG2BABEL = {
     "en" : "english",
     "fr" : "french",
     "ro" : "romanian",
-    "zhs" : "chinese-simplified",
-    "zht" : "chinese-traditional",
+        }
+
+LANG2LABEL = {
+    "de" : "German",
+    "en" : "English",
+    "fr" : "French",
+    "ro" : "Romanian",
+    "zhs" : "Chinese (simplified)",
+    "zht" : "Chinese (traditional)",
         }
 
 import os
@@ -68,7 +75,7 @@ def getRepos(entries):
 def printLaTeXHeader(dictionary):
     # TODO: we only calculate entries here to extract repos (unnecessary!)
     entries = dictionary.getEntries(dictionary.languages[0], dictionary.languages[1:])
-    langLabels = [(LANG2BABEL[l] if l in LANG2BABEL else l).capitalize() for l in dictionary.languages]
+    langLabels = [(LANG2LABEL[l] if l in LANG2LABEL else l).capitalize() for l in dictionary.languages]
 
     print(r"\documentclass{article}")
     print(r"\usepackage[mh]{smglom}")
@@ -76,11 +83,17 @@ def printLaTeXHeader(dictionary):
     print(r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}")
     print(r"\usepackage{fullpage}")
     print(r"\usepackage[utf8]{inputenc}")
-    #print(r"\usepackage[main=" + ",".join([LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]) + "]{babel}")
     babellangs = [LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]
+    # we need English (the dictionary itself is in English)
     if "english" in babellangs:
         babellangs.remove("english")
     print(r"\usepackage[main=english," + ",".join(babellangs) + "]{babel}")
+    if "zhs" in dictionary.languages or "zht" in dictionary.languages:
+    #    print(r"\usepackage{CJKutf8}")
+    #    print(r"\usepackage[UTF8]{ctex}")
+        print(r"\usepackage{fontspec}")
+        print(r"\setmainfont[AutoFakeBold=4]{FandolFang}")
+        print(r'\XeTeXlinebreaklocale "zh"')
     print(r"\usepackage{longtable}")
     print(r"\title{Multi-Lingual Dictionary (Auto-Generated)\\")
     print(r"\small{Languages: " + ", ".join(langLabels) + r"}\\")
@@ -95,18 +108,27 @@ def printAsLaTeX(dictionary):
     for keylang in dictionary.languages:
         otherlangs = dictionary.languages[:]
         otherlangs.remove(keylang)
-        langLabels = [(LANG2BABEL[l] if l in LANG2BABEL else l).capitalize() for l in [keylang] + otherlangs]
+        langLabels = [(LANG2LABEL[l] if l in LANG2LABEL else l).capitalize() for l in [keylang] + otherlangs]
+        print(r"\newpage")
+        print()
         print(r"\section{" + langLabels[0] + "}")
         print(r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}")
         print("&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\")
         print(r"\hline")
         for entry in dictionary.getEntries(keylang, otherlangs):
-            # print(entry.gimport)
             cells = [entry.keystr] + entry.transl
-            cells = ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c if l in LANG2BABEL else c for (l,c) in zip([keylang] + otherlangs, cells)]
-            # only have gimport if $ in entry (to avoid unnecessary gimports, which significantly slow down the compilation)
-            cells = [entry.gimport + c if "$" in c else c for c in cells]
-            print("&".join(cells) + r"\\")
+            newcells = []
+            for (l, c) in zip([keylang] + otherlangs, cells):
+                if "$" in c:
+                    # only have gimport if $ in entry (to avoid unnecessary gimports, which significantly slow down the compilation)
+                    c = entry.gimport + c
+                if l in LANG2BABEL:
+                    newcells += ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c]
+#                elif l in ["zhs", "zht"]:
+#                    newcells += ["\\begin{CJK}{UTF8}{gbsn}" + c + "\\end{CJK}"]
+                else:
+                    newcells += [c]
+            print(" & ".join(newcells) + r"\\")
         print(r"\end{longtable}")
     print(r"\end{document}""")
 
