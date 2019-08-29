@@ -60,11 +60,11 @@ def makeDictionary(mathhub_dir, gatherer, languages):
     for defi in gatherer.defis:
         if defi["lang"] not in languages:
             continue
-        gimportpath = os.path.relpath(os.path.realpath(defi["path"]), mathhub_dir).split(os.sep)
-        if "source" in gimportpath:
-            gimportpath.remove("source")
-        gimportpath = "/".join(gimportpath[:-1])
-        symb = (gimportpath, defi["mod_name"], defi["name"])
+        repopath = os.path.relpath(os.path.realpath(defi["path"]), mathhub_dir).split(os.sep)
+        if "source" in repopath:
+            repopath.remove("source")
+        repopath = "/".join(repopath[:-1])
+        symb = (repopath, defi["mod_name"], defi["name"])
         dictionary.addEntry(symb, defi["lang"], defi["string"])
 
     return dictionary
@@ -78,6 +78,7 @@ def printLaTeXHeader(dictionary):
     langLabels = [(LANG2LABEL[l] if l in LANG2LABEL else l).capitalize() for l in dictionary.languages]
 
     print(r"\documentclass{article}")
+    print(r"\usepackage{calbf}")
     print(r"\usepackage[mh]{smglom}")
     print(r"\defpath{MathHub}{" + dictionary.mathhub_dir + "}")
     print(r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}")
