@@ -70,6 +70,11 @@ def get_file_pos_str(string, offset):
     (line, char) = get_file_position(string, offset)
     return f"{line}:{char}"
 
+def pos_str_to_int_tuple(offset_string):
+    l = offset_string.split(":")
+    assert len(l) == 2
+    return (int(l[0]), int(l[1]))
+
 def preprocess_string(string):
     """ removes comment lines, but keeps linebreaks to maintain line numbers
         TODO: Implement this in a cleaner way!
