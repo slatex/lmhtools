@@ -13,10 +13,20 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 """
 
 
-EXTRA_HEADER = r"""
-    \def\fp{\mathfrak{p}}
-    \usepackage{ed}
-    \def\approxeqOp\approx
+HEADER = r"""
+\newenvironment{glossaryentry}[5]{\mhcurrentrepos{#2}#5\item[#3]\begin{mhmodnl}{#1}{#4}\begin{definition}[display=flow]}{\end{definition}\end{mhmodnl}}
+\newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
+
+%%% STUPID WORKAROUNDS
+\def\fp{\mathfrak{p}}
+\usepackage{ed}
+\def\approxeqOp\approx
+
+\usepackage{xcolor}
+\def\green#1{\textcolor{green}{#1}}
+
+\usepackage{calbf}
+%\usepackage{fullpage}
 """
 
 import lmh_harvest as harvest
@@ -44,13 +54,13 @@ re_trefi2 = re.compile(   # stuff like \trefi[?
         )
 
 def findSurroundingDefinition(string, offset):
-    begins = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(re_begin_definition, string)]
-    ends = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(re_end_definition, string)]
+    begins = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(re_begin_definition, string)]
+    ends = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(re_end_definition, string)]
     # find relevant begin/end
     begins = [(p,o) for (p,o) in begins if p < offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
     if len(begins) == 0 or len(ends) == 0:
-        return "Error: The \\defi does not appear to be inside a definition environment"
+        return "Error: The \\\\defi does not appear to be inside a definition environment"
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
 
@@ -76,7 +86,7 @@ class Glossary(object):
             if repopath not in self.repos:
                 self.repos.append(repopath)
 
-            self.entries.append(Entry(defi["string"], defstr, repopath, defi["mod_name"]))
+            self.entries.append(Entry(defi["string"], defstr, repopath, defi["mod_name"], defi["lang"]))
 
     def __str__(self):
         sellang = ""
@@ -90,43 +100,44 @@ class Glossary(object):
             langstr = "\\usepackage{fontspec}\n"
             langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
         return ("\\documentclass{article}\n"
-                + EXTRA_HEADER +
-                "\\usepackage{calbf}\n"
+                + HEADER +
                 "\\usepackage[mh]{smglom}\n"
                 "\\defpath{MathHub}{" + self.mathhub_dir + "}\n"
-                "\\mhcurrentrepos{" + ",".join(sorted(self.repos)) + "}\n"
+                "\\usepackage[mh]{tikzinput}\n"
                 "\\usepackage[utf8]{inputenc}\n"
                 + langstr +
                 "\\title{Glossary (Auto-Generated)}\n"
                 "\\begin{document}\n"
                 "\\maketitle\n\n"
                 + sellang
+                + "\\begin{smglossary}\n"
                 + "\n\n".join([str(e) for e in sorted(self.entries, key=lambda e : e.keystr)])
+                + "\\end{smglossary}\n"
                 + r"\end{document}")
 
             
 
 class Entry(object):
-    def __init__(self, keystr, defstr, repo, mod_name):
+    def __init__(self, keystr, defstr, repo, mod_name, lang):
         self.keystr = keystr
         self.defstr = defstr
         self.repo = repo
         self.mod_name = mod_name
         if self.mod_name[0] == "?":
             raise Exception("weird: " + self.mod_name)
+        self.lang = lang
 
     def __str__(self):
-        gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}\n"
-        # defstr = re_trefi1.sub(r"\\\1[" + self.mod_name + "]{", self.defstr)
-        # defstr = re_trefi2.sub(r"\\\1[" + self.mod_name + "?", defstr)
-        defstr = self.defstr
-        return (
-            #(gimport if "$" in self.defstr else "")  # hack to avoid unnecessary gimports (which slow down compilation)
-            gimport
-            + r"\subsubsection*{" + self.keystr + "}\n"
-            + defstr)
-
-
+        # gimport iff formula in key
+        gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}" if "$" in self.keystr else ""
+        return ("\\begin{glossaryentry}{"
+                + self.mod_name + "}{"
+                + self.repo + "}{"
+                + self.keystr + "}{"
+                + self.lang + "}{"
+                + gimport + "}\n"
+                + self.defstr
+                + "\\end{glossaryentry}\n")
 
 
 if __name__ == "__main__":
