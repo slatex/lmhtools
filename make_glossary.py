@@ -12,6 +12,13 @@ Sketch:
 run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create subdir applications, clone lmhtools in there and create pdf using Makefile)
 """
 
+
+EXTRA_HEADER = r"""
+    \def\fp{\mathfrak{p}}
+    \usepackage{ed}
+    \def\approxeqOp\approx
+"""
+
 import lmh_harvest as harvest
 import re
 import os
@@ -26,6 +33,14 @@ re_begin_definition = re.compile(
 re_end_definition = re.compile(
         r"\\end\s*"
         r"\{definition\}"
+        )
+
+re_trefi1 = re.compile(   # stuff like \trefi{
+        r"\\((at|mt|t|Mt|T)ref(i|ii|iii|iv)s?)\{"
+        )
+
+re_trefi2 = re.compile(   # stuff like \trefi[?
+        r"\\((at|mt|t|Mt|T)ref(i|ii|iii|iv)s?)\[\?"
         )
 
 def findSurroundingDefinition(string, offset):
@@ -75,6 +90,7 @@ class Glossary(object):
             langstr = "\\usepackage{fontspec}\n"
             langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
         return ("\\documentclass{article}\n"
+                + EXTRA_HEADER +
                 "\\usepackage{calbf}\n"
                 "\\usepackage[mh]{smglom}\n"
                 "\\defpath{MathHub}{" + self.mathhub_dir + "}\n"
@@ -96,13 +112,19 @@ class Entry(object):
         self.defstr = defstr
         self.repo = repo
         self.mod_name = mod_name
+        if self.mod_name[0] == "?":
+            raise Exception("weird: " + self.mod_name)
 
     def __str__(self):
         gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}\n"
+        # defstr = re_trefi1.sub(r"\\\1[" + self.mod_name + "]{", self.defstr)
+        # defstr = re_trefi2.sub(r"\\\1[" + self.mod_name + "?", defstr)
+        defstr = self.defstr
         return (
-            (gimport if "$" in self.defstr else "")  # hack to avoid unnecessary gimports (which slow down compilation)
+            #(gimport if "$" in self.defstr else "")  # hack to avoid unnecessary gimports (which slow down compilation)
+            gimport
             + r"\subsubsection*{" + self.keystr + "}\n"
-            + self.defstr)
+            + defstr)
 
 
 
