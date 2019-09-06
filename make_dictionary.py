@@ -146,7 +146,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     mathhub_dir = harvest.get_mathhub_dir(args.DIRECTORY[0])
-    languages = args.LANGUAGES.split(",")
+    languages = re.split("[-,_+.]", args.LANGUAGES)
     logger = harvest.SimpleLogger(0)   # for now: 0 verbosity
     ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
     for directory in args.DIRECTORY:
