@@ -21,6 +21,7 @@ LANG2LABEL = {
         }
 
 import os
+import re
 import lmh_harvest as harvest
 
 class Dictionary(object):
