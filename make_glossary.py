@@ -136,7 +136,7 @@ class Entry(object):
                 + self.keystr + "}{"
                 + self.lang + "}{"
                 + gimport + "}\n"
-                + self.defstr
+                + self.defstr.strip()
                 + "\\end{glossaryentry}\n")
 
 
