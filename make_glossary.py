@@ -100,7 +100,8 @@ class Glossary(object):
         elif self.lang in ["zhs", "zht"]:
             langstr = "\\usepackage{fontspec}\n"
             langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
-            langstr += "\\XeTexlinebreaklocale \"zh\"\n"
+            langstr += "\\XeTeXlinebreaklocale \"zh\"\n"
+            langstr += "\\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt\n"
         return ("\\documentclass{article}\n"
                 + HEADER +
                 "\\usepackage[mh]{smglom}\n"
