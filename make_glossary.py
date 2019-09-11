@@ -18,14 +18,15 @@ HEADER = r"""
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 %%% STUPID WORKAROUNDS
-\def\fp{\mathfrak{p}}
+% \def\fp{\mathfrak{p}}
+% \def\approxeqOp\approx
 \usepackage{ed}
-\def\approxeqOp\approx
 
 \usepackage{xcolor}
 \def\green#1{\textcolor{green}{#1}}
 
 \usepackage{calbf}
+\usepackage{url}
 %\usepackage{fullpage}
 """
 
@@ -136,7 +137,7 @@ class Entry(object):
                 + self.keystr + "}{"
                 + self.lang + "}{"
                 + gimport + "}\n"
-                + self.defstr.strip()
+                + self.defstr.strip() + "\n"
                 + "\\end{glossaryentry}\n")
 
 
