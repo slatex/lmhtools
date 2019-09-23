@@ -61,7 +61,7 @@ def findSurroundingDefinition(string, offset):
     begins = [(p,o) for (p,o) in begins if p < offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
     if len(begins) == 0 or len(ends) == 0:
-        return "Error: The \\\\defi does not appear to be inside a definition environment"
+        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment}}"
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
 

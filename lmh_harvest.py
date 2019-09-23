@@ -894,7 +894,7 @@ if __name__ == "__main__":
 
     mathhub_dir = get_mathhub_dir(args.DIRECTORY[0])
     logger = SimpleLogger(verbosity)
-    ctx = HarvestContext(SimpleLogger(verbosity), DataGatherer(), mathhub_dir)
+    ctx = HarvestContext(logger, DataGatherer(), mathhub_dir)
 
     for directory in args.DIRECTORY:
         gather_data_for_all_repos(directory, ctx)
