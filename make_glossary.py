@@ -15,6 +15,7 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 
 HEADER = r"""
 \newenvironment{glossaryentry}[5]{\mhcurrentrepos{#2}#5\item[#3]\begin{mhmodnl}{#1}{#4}\begin{definition}[display=flow]}{\end{definition}\end{mhmodnl}}
+\newenvironment{glossarymoduleentry}[4]{\mhcurrentrepos{#4}\item[#3]\begin{module}[id=#1]#2\begin{definition}[display=flow]}{\end{definition}\end{module}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 %%% STUPID WORKAROUNDS
@@ -72,22 +73,38 @@ class Glossary(object):
         self.entries = []
         self.repos = []
 
-    def fill(self, gatherer):
+    def fill(self, gatherer, allowunknownlang = False):
         for defi in gatherer.defis:
-            if defi["lang"] != self.lang:
+            if defi["lang"] != "?" and defi["lang"] != self.lang:
                 continue
+            if defi["lang"] == "?" and not allowunknownlang:
+                continue
+
             with open(defi["path"], "r") as fp:
                 filestr = harvest.preprocess_string(fp.read())   # removes comments, reduces risk of non-matching file offsets
             defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(defi["offset"]))
 
             repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
+            postpath = None
             if "source" in repopath:
-                repopath.remove("source")
-            repopath = "/".join(repopath[:-1])
+                # repopath.remove("source")
+                postpath = repopath[repopath.index("source")+1:]
+                repopath = repopath[:repopath.index("source")]
+            else:
+                repopath = repopath[:-1]  # remove only file???
+                print("WARNING: repopath:" + repopath)
+            repopath = "/".join(repopath)
             if repopath not in self.repos:
                 self.repos.append(repopath)
-
-            self.entries.append(Entry(defi["string"], defstr, repopath, defi["mod_name"], defi["lang"]))
+            importstr = ""
+            if postpath:        # TODO: module vs mhmodnl distinction has to be improved!
+                # if "$" in defi["string"]:
+                #     importstr = "\\usemhmodule[repos=" + repopath + ",path=" + "/".join(postpath)[:-4] + "]{" + defi["mod_name"] + "}"
+                self.entries.append(ModuleEntry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
+            else:
+                if "$" in defi["string"]:
+                    importstr = "\\gimport[" + repopath + "]{" + defi["mod_name"] + "}"
+                self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"]))
 
     def __str__(self):
         sellang = ""
@@ -118,12 +135,11 @@ class Glossary(object):
                 + "\\end{smglossary}\n"
                 + r"\end{document}")
 
-            
-
 class Entry(object):
-    def __init__(self, keystr, defstr, repo, mod_name, lang):
+    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang):
         self.keystr = keystr
         self.defstr = defstr
+        self.importstr = importstr
         self.repo = repo
         self.mod_name = mod_name
         if self.mod_name[0] == "?":
@@ -132,15 +148,28 @@ class Entry(object):
 
     def __str__(self):
         # gimport iff formula in key
-        gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}" if "$" in self.keystr else ""
         return ("\\begin{glossaryentry}{"
                 + self.mod_name + "}{"
                 + self.repo + "}{"
                 + self.keystr + "}{"
                 + self.lang + "}{"
-                + gimport + "}\n"
+                + self.importstr + "}\n"
                 + self.defstr.strip() + "\n"
                 + "\\end{glossaryentry}\n")
+
+class ModuleEntry(Entry):
+    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart):
+        super().__init__(keystr, defstr, repo, importstr, mod_name, lang)
+        self.pathpart = pathpart
+
+    def __str__(self):
+        return ("\\begin{glossarymoduleentry}{"
+                + self.mod_name + "}{"
+                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}" + "\n}{"
+                + self.keystr + "}{"
+                + self.repo + "}\n"
+                + self.defstr.strip() + "\n"
+                + "\\end{glossarymoduleentry}\n")
 
 
 if __name__ == "__main__":
