@@ -216,7 +216,7 @@ class DataGatherer(object):
             }
         self.symis.append(entry)
 
-    def push_trefi(self, offset_str, ctx):
+    def push_trefi(self, name, targetmodule, isdrefi, offset_str, ctx):
         self.trefis.append(
             {
                 "mod_name" : ctx.mod_name,
@@ -225,6 +225,9 @@ class DataGatherer(object):
                 "offset" : offset_str,
                 "lang" : ctx.lang,
                 "path" : ctx.file,
+                "name" : name,
+                "target_mod" : (targetmodule if targetmodule else ctx.mod_name),
+                "drefi" : isdrefi,
             }
         )
 
@@ -331,7 +334,7 @@ re_end_gviewnl = re.compile(
         ) 
 
 re_tref = re.compile(
-        r"\\(?P<start>at|mt|t|Mt|T)ref(?P<arity>i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>at|mt|t|Mt|T|d|D)ref(?P<arity>i|ii|iii|iv)s?\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -586,8 +589,19 @@ def harvest_nl(string, name, lang, ctx):
                 ctx.log(f"Require \\begin{mhmodnl} or \\begin{gviewnl} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
-            get_args(match, False, string, ctx)    # print error messages for arity violations
-            ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+            params = match.group("params")
+            args = get_args(match, False, string, ctx)
+            isdrefi = "d" in match.group("start").lower()
+
+            tname = "-".join(args)
+            targetmodule = None
+            if params:
+                targetmodule = params
+                if "?" in params:
+                    targetmodule = params.split("?")[0]
+                    tname = params.split("?")[1]
+
+            ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_BEGIN_MHMODNL:
             isacceptablefile = True
             required_end_module = TOKEN_END_MHMODNL
@@ -661,8 +675,19 @@ def harvest_mono(string, name, ctx):
                 ctx.log("Require \\begin{module} before token: '" + match.group(0) + "'",
                         2, get_file_pos_str(string, match.start()))
                 continue
-            get_args(match, False, string, ctx)    # print error messages for arity violations
-            ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+            params = match.group("params")
+            args = get_args(match, False, string, ctx)
+            isdrefi = "d" in match.group("start").lower()
+
+            tname = "-".join(args)
+            targetmodule = None
+            if params:
+                targetmodule = params
+                if "?" in params:
+                    targetmodule = params.split("?")[0]
+                    tname = params.split("?")[1]
+
+            ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type in [TOKEN_IMPORTMHMODULE, TOKEN_USEMHMODULE, TOKEN_MHINPUTREF]:
             if not in_module:
                 if token_type == TOKEN_IMPORTMHMODULE:
@@ -739,8 +764,19 @@ def harvest_text(string, ctx):
         if token_type == TOKEN_TREF:
             #ctx.log("Warning: Found trefi token in unidentified file",
             #        3, get_file_pos_str(string, match.start()))
-            get_args(match, False, string, ctx)    # print error messages for arity violations
-            ctx.gatherer.push_trefi(get_file_pos_str(string, match.start()), ctx)
+            params = match.group("params")
+            args = get_args(match, False, string, ctx)
+            isdrefi = "d" in match.group("start").lower()
+
+            tname = "-".join(args)
+            targetmodule = None
+            if params:
+                targetmodule = params
+                if "?" in params:
+                    targetmodule = params.split("?")[0]
+                    tname = params.split("?")[1]
+
+            ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_USEMHMODULE or token_type == TOKEN_MHINPUTREF:
             params = get_params(match.group("params"))
             repo = ctx.repo
@@ -874,6 +910,20 @@ def get_mathhub_dir(path, mayContainSymbLinks = True):
             raise Exception("Failed to infer MathHub directory (it is required that a parent directory called 'MathHub' exists)")
         mathhub_dir = new
     return mathhub_dir
+
+def split_path_repo_doc(path):
+    """ splits a path into repository name and document path (relative to 'source') """
+    path = os.path.realpath(path)
+    mathhub_dir = get_mathhub_dir(path)
+    restpath = os.path.relpath(path, mathhub_dir).split(os.sep)
+    if "source" not in restpath:
+        raise Exception("Couldn't find a 'source' folder in " + path)
+    repo = os.sep.join(restpath[:restpath.index("source")])
+    doc = os.sep.join(restpath[restpath.index("source")+1:])
+    if doc.endswith(".tex"):
+        doc = doc[:-4]
+    return repo, doc
+
 
 if __name__ == "__main__":
     import argparse
