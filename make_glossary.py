@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
 r"""
+    Functionality for creating an sTeX-based glossary.
+    It can be run directly on smglom.
+    The functionality is also used in lecture_glossary.py,
+    which gathers symbols used in a lecture and creates a glossary from that.
+
 Sketch:
 
     forall defis (sorted alphabetically):
@@ -72,6 +77,39 @@ class Glossary(object):
         self.mathhub_dir = mathhub_dir
         self.entries = []
         self.repos = []
+        self.covered_defis = set()
+
+    def fillDefi(self, defi):
+        defistr = defi["path"] + defi["offset"]   # unique for each defi
+        if defistr in self.covered_defis:
+            return
+        self.covered_defis.add(defistr)
+
+        with open(defi["path"], "r") as fp:
+            filestr = harvest.preprocess_string(fp.read())   # removes comments, reduces risk of non-matching file offsets
+        defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(defi["offset"]))
+
+        repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
+        postpath = None
+        if "source" in repopath:
+            # repopath.remove("source")
+            postpath = repopath[repopath.index("source")+1:]
+            repopath = repopath[:repopath.index("source")]
+        else:
+            repopath = repopath[:-1]  # remove only file???
+            print("WARNING: repopath:" + repopath)
+        repopath = os.sep.join(repopath)
+        if repopath not in self.repos:
+            self.repos.append(repopath)
+        importstr = ""
+        if postpath:        # TODO: module vs mhmodnl distinction has to be improved!
+                            # addendum: I think we might have to do an ModuleEntry whenever there is a postpath.
+                            # Can we just always do them?
+            self.entries.append(ModuleEntry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
+        else:
+            if "$" in defi["string"]:
+                importstr = "\\gimport[" + repopath + "]{" + defi["mod_name"] + "}"
+            self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"]))
 
     def fill(self, gatherer, allowunknownlang = False):
         for defi in gatherer.defis:
@@ -79,32 +117,7 @@ class Glossary(object):
                 continue
             if defi["lang"] == "?" and not allowunknownlang:
                 continue
-
-            with open(defi["path"], "r") as fp:
-                filestr = harvest.preprocess_string(fp.read())   # removes comments, reduces risk of non-matching file offsets
-            defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(defi["offset"]))
-
-            repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
-            postpath = None
-            if "source" in repopath:
-                # repopath.remove("source")
-                postpath = repopath[repopath.index("source")+1:]
-                repopath = repopath[:repopath.index("source")]
-            else:
-                repopath = repopath[:-1]  # remove only file???
-                print("WARNING: repopath:" + repopath)
-            repopath = os.sep.join(repopath)
-            if repopath not in self.repos:
-                self.repos.append(repopath)
-            importstr = ""
-            if postpath:        # TODO: module vs mhmodnl distinction has to be improved!
-                # if "$" in defi["string"]:
-                #     importstr = "\\usemhmodule[repos=" + repopath + ",path=" + "/".join(postpath)[:-4] + "]{" + defi["mod_name"] + "}"
-                self.entries.append(ModuleEntry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
-            else:
-                if "$" in defi["string"]:
-                    importstr = "\\gimport[" + repopath + "]{" + defi["mod_name"] + "}"
-                self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"]))
+            self.fillDefi(defi)
 
     def __str__(self):
         sellang = ""
@@ -161,6 +174,11 @@ class ModuleEntry(Entry):
     def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart):
         super().__init__(keystr, defstr, repo, importstr, mod_name, lang)
         self.pathpart = pathpart
+        for ending in [".en", ".de", ".ru", ".zhs", ".tu", ".ro"]:
+            if self.pathpart.endswith(ending):
+                self.pathpart = self.pathpart[:-len(ending)]
+                break
+
 
     def __str__(self):
         return ("\\begin{glossarymoduleentry}{"

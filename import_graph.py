@@ -168,7 +168,7 @@ class Graph(object):
         self.g_nodes = {}
         self.g_edges = {}  # \importmhmodule, \guse, ... edges
 
-def add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered):
+def add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered = False):
     # gather data
     context = Context(mathhub, root_repo, root_doc, onlycovered)
     try:
