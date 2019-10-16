@@ -93,7 +93,7 @@ class Glossary(object):
             else:
                 repopath = repopath[:-1]  # remove only file???
                 print("WARNING: repopath:" + repopath)
-            repopath = "/".join(repopath)
+            repopath = os.sep.join(repopath)
             if repopath not in self.repos:
                 self.repos.append(repopath)
             importstr = ""
