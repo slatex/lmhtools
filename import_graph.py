@@ -252,12 +252,18 @@ def fill_graph(mathhub, root_repo, root_doc, graph, onlycovered = False):
                 if not name:
                     name = os.path.split(node)[1][:-4]
                 potential_nodes[node] = {"label" : name, "type" : "module"}
+        for mod in gatherer.langfiles:
+            node = mod["path"]
+            if node not in potential_nodes.keys():
+                name = mod["mod_name"]
+                if not name:
+                    name = os.path.split(node)[1][:-4]
+                potential_nodes[node] = {"label" : name, "type" : "langfile"}
         for file_ in gatherer.textfiles:
             node = file_["path"]
             if node not in potential_nodes.keys():
                 potential_nodes[node] = {"label" : os.path.split(node)[1], "type" : "text"}
         assert not gatherer.sigfiles
-        assert not gatherer.langfiles
 
         potential_modules = []      # includes text files
         for inp in gatherer.mhinputrefs:
