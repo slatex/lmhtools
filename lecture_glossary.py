@@ -68,7 +68,21 @@ graph.fill_graph(mathhub_dir, root_repo, root_doc, mygraph, False)
 lang = "en"
 ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
 
-for filename in list(mygraph.g_nodes.keys()) + list(mygraph.module_nodes.keys()) + [k[0] for k in mygraph.omgroup_nodes.keys()]:
+relevantfiles = \
+        list(mygraph.g_nodes.keys()) +\
+        list(mygraph.module_nodes.keys()) +\
+        [k[0] for k in mygraph.omgroup_nodes.keys()]
+
+print("\n".join(relevantfiles))
+
+extrafiles = []
+for filename in relevantfiles:
+    # check computer.en.tex if computer.tex is used
+    lf = filename[:-4]+".en.tex"
+    if os.path.isfile(lf):
+        extrafiles.append(lf)
+
+for filename in relevantfiles + extrafiles:
     ctx.repo = harvest.split_path_repo_doc(filename)[1]
     ctx.gatherer.push_repo(ctx.repo, ctx)
     root, name = os.path.split(filename)
