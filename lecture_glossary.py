@@ -23,13 +23,16 @@ args = parser.parse_args()
 mathhub_dir = harvest.get_mathhub_dir(args.INFILE)
 root_repo, root_doc = harvest.split_path_repo_doc(args.INFILE)
 
+
+ONLY_COVERED_PART = True
+
 print("Mathhub: " + mathhub_dir)
 print("root repo: " + root_repo)
 print("root doc: " + root_doc)
 
 def getdefisandtrefis():
     displayedgraph = graph.Graph()
-    displayedfiles = graph.add_omgroup_data(mathhub_dir, root_repo, root_doc, displayedgraph, False)
+    displayedfiles = graph.add_omgroup_data(mathhub_dir, root_repo, root_doc, displayedgraph, ONLY_COVERED_PART)
     displayedfiles += displayedgraph.module_nodes
 
     logger = harvest.SimpleLogger(2)
@@ -62,7 +65,7 @@ defis, trefis = getdefisandtrefis()
 logger = harvest.SimpleLogger(2)
 
 mygraph = graph.Graph()
-graph.fill_graph(mathhub_dir, root_repo, root_doc, mygraph, False)
+graph.fill_graph(mathhub_dir, root_repo, root_doc, mygraph, ONLY_COVERED_PART)
 
 
 lang = "en"
