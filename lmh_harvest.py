@@ -573,7 +573,7 @@ def harvest_nl(string, name, lang, ctx):
     for (match, token_type) in tokens:
         if token_type == TOKEN_DEF:
             if required_end_module == None or required_end_module == TOKEN_END_GVIEWNL:
-                ctx.log(f"Require \\begin{mhmodnl} before token: '{match.group(0)}'",
+                ctx.log(f"Require \\begin{{mhmodnl}} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
             params = get_params(match.group("params"))
@@ -586,7 +586,7 @@ def harvest_nl(string, name, lang, ctx):
             ctx.gatherer.push_defi(tname, val, get_file_pos_str(string, match.start()), ctx, params)
         elif token_type == TOKEN_TREF:
             if required_end_module == None:
-                ctx.log(f"Require \\begin{mhmodnl} or \\begin{gviewnl} before token: '{match.group(0)}'",
+                ctx.log(f"Require \\begin{{mhmodnl}} or \\begin{{gviewnl}} before token: '{match.group(0)}'",
                         1, get_file_pos_str(string, match.start()))
                 continue
             params = match.group("params")
