@@ -72,8 +72,6 @@ relevantfiles = \
         list(mygraph.module_nodes.keys()) +\
         [k[0] for k in mygraph.omgroup_nodes.keys()]
 
-print("\n".join(relevantfiles))
-
 extrafiles = []
 for filename in relevantfiles:
     # check computer.en.tex if computer.tex is used
@@ -91,11 +89,15 @@ for filename in relevantfiles + extrafiles:
     harvest.harvest_file(root, name, ctx)
 
 
-    
+
 dictionary = Dictionary(["en", "de"], mathhub_dir)
 relevantsymbs = []
-for e in defis + trefis:
+for e in defis:
     symb = (e["mod_name"], e["name"])
+    relevantsymbs.append(symb)
+
+for e in trefis:
+    symb = (e["target_mod"], e["name"])
     relevantsymbs.append(symb)
 
 for defi in ctx.gatherer.defis:
