@@ -73,50 +73,52 @@ def makeDictionary(mathhub_dir, gatherer, languages):
 def getRepos(entries):
     return sorted(list(set([entry.repo for entry in entries])))
 
-def printLaTeXHeader(dictionary):
+def getLaTeXHeader(dictionary):
     # TODO: we only calculate entries here to extract repos (unnecessary!)
     entries = dictionary.getEntries(dictionary.languages[0], dictionary.languages[1:])
     langLabels = [(LANG2LABEL[l] if l in LANG2LABEL else l).capitalize() for l in dictionary.languages]
+    result = ""
 
-    print(r"\documentclass{article}")
-    print(r"\usepackage{calbf}")
-    print(r"\usepackage[mh]{smglom}")
-    print(r"\defpath{MathHub}{" + dictionary.mathhub_dir + "}")
-    print(r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}")
-    print(r"\usepackage{fullpage}")
-    print(r"\usepackage[utf8]{inputenc}")
+    result += r"\documentclass{article}" + "\n"
+    result += r"\usepackage{calbf}" + "\n"
+    result += r"\usepackage[mh]{smglom}" + "\n"
+    result += r"\defpath{MathHub}{" + dictionary.mathhub_dir + "}" + "\n"
+    result += r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}" + "\n"
+    result += r"\usepackage{fullpage}" + "\n"
+    result += r"\usepackage[utf8]{inputenc}" + "\n"
     babellangs = [LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]
     # we need English (the dictionary itself is in English)
     if "english" in babellangs:
         babellangs.remove("english")
-    print(r"\usepackage[main=english," + ",".join(babellangs) + "]{babel}")
+    result += r"\usepackage[main=english," + ",".join(babellangs) + "]{babel}" + "\n"
     if "zhs" in dictionary.languages or "zht" in dictionary.languages:
-    #    print(r"\usepackage{CJKutf8}")
-    #    print(r"\usepackage[UTF8]{ctex}")
-        print(r"\usepackage{fontspec}")
-        # print(r"\setmainfont[AutoFakeBold=4]{FandolFang}")
-        # print(r'\XeTeXlinebreaklocale "zh"')
-    print(r"\usepackage{longtable}")
-    print(r"\title{Multi-Lingual Dictionary (Auto-Generated)\\")
-    print(r"\small{Languages: " + ", ".join(langLabels) + r"}\\")
-    print(r"\small{Topics: " + ", ".join(sorted([r.split("/")[-1].capitalize() for r in getRepos(entries)])) + r"}}")
-    print(r"\begin{document}")
-    print(r"\maketitle")
-    print(r"\tableofcontents")
+    #    result += r"\usepackage{CJKutf8}" + "\n"
+    #    result += r"\usepackage[UTF8]{ctex}" + "\n"
+        result += r"\usepackage{fontspec}" + "\n"
+        # result += r"\setmainfont[AutoFakeBold=4]{FandolFang}" + "\n"
+        # result += r'\XeTeXlinebreaklocale "zh"' + "\n"
+    result += r"\usepackage{longtable}" + "\n"
+    result += r"\title{Multi-Lingual Dictionary (Auto-Generated)\\" + "\n"
+    result += r"\small{Languages: " + ", ".join(langLabels) + r"}\\" + "\n"
+    result += r"\small{Topics: " + ", ".join(sorted([r.split("/")[-1].capitalize() for r in getRepos(entries)])) + r"}}" + "\n"
+    result += r"\begin{document}" + "\n"
+    result += r"\maketitle" + "\n"
+    result += r"\tableofcontents" + "\n"
+    return result
 
-def printAsLaTeX(dictionary):
+def getAsLaTeX(dictionary):
     assert len(dictionary.languages) > 0
-    printLaTeXHeader(dictionary)
+    result = getLaTeXHeader(dictionary)
     for keylang in dictionary.languages:
         otherlangs = dictionary.languages[:]
         otherlangs.remove(keylang)
         langLabels = [(LANG2LABEL[l] if l in LANG2LABEL else l).capitalize() for l in [keylang] + otherlangs]
-        print(r"\newpage")
-        print()
-        print(r"\section{" + langLabels[0] + "}")
-        print(r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}")
-        print("&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\")
-        print(r"\hline")
+        result += r"\newpage" + "\n"
+        result += "" + "\n"
+        result += r"\section{" + langLabels[0] + "}" + "\n"
+        result += r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}" + "\n"
+        result += "&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\" + "\n"
+        result += r"\hline" + "\n"
         for entry in dictionary.getEntries(keylang, otherlangs):
             cells = [entry.keystr] + entry.transl
             newcells = []
@@ -131,9 +133,10 @@ def printAsLaTeX(dictionary):
                     newcells += [r"{\fontspec[AutoFakeBold=4]{FandolFang}" + c + "}"]
                 else:
                     newcells += [c]
-            print(" & ".join(newcells) + r"\\")
-        print(r"\end{longtable}")
-    print(r"\end{document}""")
+            result += " & ".join(newcells) + r"\\" + "\n"
+        result += r"\end{longtable}" + "\n"
+    result += r"\end{document}""" + "\n"
+    return result
 
 
 if __name__ == "__main__":
@@ -155,5 +158,5 @@ if __name__ == "__main__":
     
     dictionary = makeDictionary(mathhub_dir, ctx.gatherer, languages)
     # printAsTxt(dictionary)
-    printAsLaTeX(dictionary)
+    print(getAsLaTeX(dictionary))
 
