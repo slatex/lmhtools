@@ -99,6 +99,7 @@ def recurse_omgroup(context, i, tokens):
     i += 1
     recurse_into = []
     found_end = False
+    should_stop_since_covereduptohere = False
     while i < len(tokens):
         (match, token_type) = tokens[i]
         if token_type == TOKEN_END_OMGROUP:
@@ -117,13 +118,14 @@ def recurse_omgroup(context, i, tokens):
             i += 1
         elif token_type == TOKEN_COVEREDUPTOHERE:
             if context.onlycovered:
-                raise CoveredUntilHereException()
+                should_stop_since_covereduptohere = True
+                break
             i += 1
         else:
             context.throw(f"Unexpected token: '{match.group(0)}'")
             i += 1
 
-    if not found_end:
+    if (not should_stop_since_covereduptohere) and not found_end:
         context.throw("Missing \\end{omgroup}")
 
     context.pop_mod()
@@ -131,6 +133,10 @@ def recurse_omgroup(context, i, tokens):
         if (repo, doc) not in context.files:
             context.push_doc(repo, doc)
             recurse_file(context)
+
+    if should_stop_since_covereduptohere:
+        raise CoveredUntilHereException()
+
     return i
         
 
@@ -147,6 +153,8 @@ def recurse_file(context):
             (match, token_type) = tokens[i]
             if token_type == TOKEN_BEGIN_OMGROUP:
                 i = recurse_omgroup(context, i, tokens)
+            elif token_type == TOKEN_COVEREDUPTOHERE:
+                raise CoveredUntilHereException()
             else:
                 context.throw(f"Unexpected token: '{match.group(0)}'")
                 i += 1
