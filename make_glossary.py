@@ -19,21 +19,16 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 
 
 HEADER = r"""
-\newenvironment{glossaryentry}[5]{\mhcurrentrepos{#2}#5\item[#3]\begin{mhmodnl}{#1}{#4}\begin{definition}[display=flow]}{\end{definition}\end{mhmodnl}}
-\newenvironment{glossarymoduleentry}[4]{\mhcurrentrepos{#4}\item[#3]\begin{module}[id=#1]#2\begin{definition}[display=flow]}{\end{definition}\end{module}}
+\newenvironment{entry}[1]%
+{\item[#1]\begin{definition}[display=flow]}
+{\end{definition}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
-%%% STUPID WORKAROUNDS
-% \def\fp{\mathfrak{p}}
-% \def\approxeqOp\approx
-\usepackage{ed}
+\usepackage{tikz}
+\usepackage[mh]{smglom}
+\usepackage{omdoc}
 
-\usepackage{xcolor}
-\def\green#1{\textcolor{green}{#1}}
-
-\usepackage{calbf}
-\usepackage{url}
-%\usepackage{fullpage}
+\input{localpaths}
 """
 
 import lmh_harvest as harvest
@@ -72,12 +67,13 @@ def findSurroundingDefinition(string, offset):
 
 
 class Glossary(object):
-    def __init__(self, language, mathhub_dir):
+    def __init__(self, language, mathhub_dir, preambledir = None):
         self.lang = language
         self.mathhub_dir = mathhub_dir
         self.entries = []
         self.repos = []
         self.covered_defis = set()
+        self.preambledir = preambledir
 
     def fillDefi(self, defi):
         defistr = defi["path"] + defi["offset"]   # unique for each defi
@@ -96,20 +92,13 @@ class Glossary(object):
             postpath = repopath[repopath.index("source")+1:]
             repopath = repopath[:repopath.index("source")]
         else:
-            repopath = repopath[:-1]  # remove only file???
-            print("WARNING: repopath:" + repopath)
+            print("WARNING: path doesn't contain 'source' folder - skipping it: " + repopath)
+            return
         repopath = os.sep.join(repopath)
         if repopath not in self.repos:
             self.repos.append(repopath)
         importstr = ""
-        if postpath:        # TODO: module vs mhmodnl distinction has to be improved!
-                            # addendum: I think we might have to do an ModuleEntry whenever there is a postpath.
-                            # Can we just always do them?
-            self.entries.append(ModuleEntry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
-        else:
-            if "$" in defi["string"]:
-                importstr = "\\gimport[" + repopath + "]{" + defi["mod_name"] + "}"
-            self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"]))
+        self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
 
     def fill(self, gatherer, allowunknownlang = False):
         for defi in gatherer.defis:
@@ -133,12 +122,9 @@ class Glossary(object):
             langstr += "\\XeTeXlinebreaklocale \"zh\"\n"
             langstr += "\\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt\n"
         return ("\\documentclass{article}\n"
-                + HEADER +
-                "\\usepackage[mh]{smglom}\n"
-                "\\defpath{MathHub}{" + self.mathhub_dir + "}\n"
-                "\\usepackage[mh]{tikzinput}\n"
-                "\\usepackage[utf8]{inputenc}\n"
-                + langstr +
+                + HEADER
+                + str(f"\\input{{{self.preambledir}}}\n" if self.preambledir else "") +\
+                langstr +
                 "\\title{Glossary (Auto-Generated)}\n"
                 "\\begin{document}\n"
                 "\\maketitle\n\n"
@@ -148,8 +134,9 @@ class Glossary(object):
                 + "\\end{smglossary}\n"
                 + r"\end{document}")
 
+
 class Entry(object):
-    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang):
+    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart):
         self.keystr = keystr
         self.defstr = defstr
         self.importstr = importstr
@@ -158,21 +145,6 @@ class Entry(object):
         if self.mod_name[0] == "?":
             raise Exception("weird: " + self.mod_name)
         self.lang = lang
-
-    def __str__(self):
-        # gimport iff formula in key
-        return ("\\begin{glossaryentry}{"
-                + self.mod_name + "}{"
-                + self.repo + "}{"
-                + self.keystr + "}{"
-                + self.lang + "}{"
-                + self.importstr + "}\n"
-                + self.defstr.strip() + "\n"
-                + "\\end{glossaryentry}\n")
-
-class ModuleEntry(Entry):
-    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart):
-        super().__init__(keystr, defstr, repo, importstr, mod_name, lang)
         self.pathpart = pathpart
         for ending in [".en", ".de", ".ru", ".zhs", ".tu", ".ro"]:
             if self.pathpart.endswith(ending):
@@ -181,13 +153,11 @@ class ModuleEntry(Entry):
 
 
     def __str__(self):
-        return ("\\begin{glossarymoduleentry}{"
-                + self.mod_name + "}{"
-                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}" + "\n}{"
-                + self.keystr + "}{"
-                + self.repo + "}\n"
+        return ("\\begin{entry}{"
+                + self.keystr + "}"
+                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
                 + self.defstr.strip() + "\n"
-                + "\\end{glossarymoduleentry}\n")
+                + "\\end{entry}\n")
 
 
 if __name__ == "__main__":

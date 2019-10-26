@@ -93,7 +93,7 @@ for filename in relevantfiles + extrafiles:
 
 
     
-glossary = Glossary(lang, mathhub_dir)
+glossary = Glossary(lang, mathhub_dir, os.path.join(mathhub_dir, root_repo, "../meta-inf/lib/preamble"))
 # glossary.fill(ctx.gatherer, allowunknownlang=True)
 
 for defi in defis:
@@ -113,6 +113,8 @@ for trefi in trefis:
         continue
     glossary.fillDefi(defiIndex[k])
 
+print("RELEVANT DEFIS:", defis)
+print("RELEVANT TREFIS:", trefis)
 
 with open(args.OUTFILE, "w") as fp:
     fp.write(str(glossary))
