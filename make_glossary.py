@@ -22,6 +22,9 @@ HEADER = r"""
 \newenvironment{entry}[2]%
 {\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
+\newenvironment{entrynl}[3]%
+{\item[#1]\mhcurrentrepos{#2}\begin{mhmodnl}#3\begin{definition}[display=flow]}
+{\end{definition}\end{mhmodnl}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 \usepackage{tikz}
@@ -152,19 +155,28 @@ class Entry(object):
         if self.mod_name[0] == "?":
             raise Exception("weird: " + self.mod_name)
         self.lang = lang
+        if self.lang == "?":
+            self.lang = "en"
         self.pathpart = pathpart
-        for ending in [".en", ".de", ".ru", ".zhs", ".tu", ".ro"]:
-            if self.pathpart.endswith(ending):
-                self.pathpart = self.pathpart[:-len(ending)]
-                break
+        self.usemhmodnl = False
+        if self.pathpart.endswith("." + self.lang):
+            self.usemhmodnl = True
+            self.pathpart = self.pathpart[:-len("." + self.lang)]
 
 
     def __str__(self):
-        return ("\\begin{entry}{"
-                + self.keystr + "}{" + self.repo + "}"
-                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
-                + self.defstr.strip() + "\n"
-                + "\\end{entry}\n")
+        if self.usemhmodnl:
+            return ("\\begin{entrynl}{"
+                    + self.keystr + "}{" + self.repo + "}{"
+                    + f"[path={self.pathpart}]{{{self.mod_name}}}{{{self.lang}}}" + "}"
+                    + self.defstr.strip() + "\n"
+                    + "\\end{entrynl}\n")
+        else:
+            return ("\\begin{entry}{"
+                    + self.keystr + "}{" + self.repo + "}"
+                    + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
+                    + self.defstr.strip() + "\n"
+                    + "\\end{entry}\n")
 
 
 if __name__ == "__main__":
