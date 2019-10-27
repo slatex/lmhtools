@@ -116,17 +116,22 @@ def getAsLaTeX(dictionary):
         result += r"\newpage" + "\n"
         result += "" + "\n"
         result += r"\section{" + langLabels[0] + "}" + "\n"
-        result += r"\begin{longtable}{" + "".join(["p{" + str(0.99/len(dictionary.languages)) + r"\textwidth}"] * len(dictionary.languages)) + "}" + "\n"
+        colwidths = [0.99/len(dictionary.languages)] * len(dictionary.languages)
+        if len(dictionary.languages) == 2:
+            colwidths = [0.33, 0.66]
+        result += r"\begin{longtable}{" + "".join(["p{" + str(w) + r"\textwidth}" for w in colwidths]) + "}" + "\n"
         result += "&".join(["\\textbf{" + l + "}" for l in langLabels]) + r"\\" + "\n"
         result += r"\hline" + "\n"
         for entry in dictionary.getEntries(keylang, otherlangs):
             cells = [entry.keystr] + entry.transl
             newcells = []
             for (l, c) in zip([keylang] + otherlangs, cells):
-                if "$" in c:
+                if "$" in c and "\\" in c:
                     # only have gimport if $ in entry (to avoid unnecessary gimports, which significantly slow down the compilation)
                     c = entry.gimport + c
-                if l in LANG2BABEL:
+                if c == "":
+                    newcells += [""]
+                elif l in LANG2BABEL:
                     newcells += ["\\selectlanguage{" + LANG2BABEL[l] + "}" + c]
                 elif l in ["zhs", "zht"]:
                     # newcells += ["\\begin{CJK}{UTF8}{gbsn}" + c + "\\end{CJK}"]
