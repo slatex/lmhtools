@@ -20,8 +20,9 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 
 HEADER = r"""
 \newenvironment{entry}[1]%
-{\item[#1]\begin{definition}[display=flow]}
-{\end{definition}}
+{\item[#1]\begin{module}[id=foo]\begin{definition}[display=flow]}
+{\end{definition}\end{module}}
+\newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 \usepackage{tikz}
