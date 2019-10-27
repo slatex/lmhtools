@@ -22,8 +22,8 @@ HEADER = r"""
 \newenvironment{entry}[2]%
 {\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
-\newenvironment{entrynl}[3]%
-{\item[#1]\mhcurrentrepos{#2}\begin{mhmodnl}#3\begin{definition}[display=flow]}
+\newenvironment{entrynl}[4]%
+{#4\item[#1]\mhcurrentrepos{#2}\begin{mhmodnl}#3\begin{definition}[display=flow]}
 {\end{definition}\end{mhmodnl}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
@@ -165,10 +165,14 @@ class Entry(object):
 
 
     def __str__(self):
+        gimport = ""
+        if "$" in self.keystr and "\\" in self.keystr:
+            gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}"
         if self.usemhmodnl:
             return ("\\begin{entrynl}{"
                     + self.keystr + "}{" + self.repo + "}{"
-                    + f"[path={self.pathpart}]{{{self.mod_name}}}{{{self.lang}}}" + "}"
+                    + f"[path={self.pathpart}]{{{self.mod_name}}}{{{self.lang}}}" + "}{"
+                    + gimport + "}"
                     + self.defstr.strip() + "\n"
                     + "\\end{entrynl}\n")
         else:
@@ -195,6 +199,6 @@ if __name__ == "__main__":
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
     
-    glossary = Glossary(lang, mathhub_dir)
+    glossary = Glossary(lang, mathhub_dir, mathhub_dir + "/smglom/meta-inf/lib/preamble")
     glossary.fill(ctx.gatherer)
     print(glossary)
