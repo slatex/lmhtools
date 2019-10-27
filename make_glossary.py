@@ -19,17 +19,16 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 
 
 HEADER = r"""
-\newenvironment{entry}[1]%
-{\item[#1]\begin{module}[id=foo]\begin{definition}[display=flow]}
+\newenvironment{entry}[2]%
+{\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
-\newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 \usepackage{tikz}
 \usepackage[mh]{smglom}
 \usepackage{omdoc}
 
-\input{localpaths}
+% \input{localpaths}
 """
 
 import lmh_harvest as harvest
@@ -68,13 +67,13 @@ def findSurroundingDefinition(string, offset):
 
 
 class Glossary(object):
-    def __init__(self, language, mathhub_dir, preambledir = None):
+    def __init__(self, language, mathhub_dir, preamblepath = None):
         self.lang = language
         self.mathhub_dir = mathhub_dir
         self.entries = []
         self.repos = []
         self.covered_defis = set()
-        self.preambledir = preambledir
+        self.preamblepath = preamblepath
 
     def fillDefi(self, defi):
         defistr = defi["path"] + defi["offset"]   # unique for each defi
@@ -122,11 +121,18 @@ class Glossary(object):
             langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
             langstr += "\\XeTeXlinebreaklocale \"zh\"\n"
             langstr += "\\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt\n"
+
+        preamblestuff = ""
+        if self.preamblepath:
+            p = os.path.split(os.path.split(os.path.relpath(self.preamblepath, self.mathhub_dir))[0])[0]
+            preamblestuff = f"\\mhcurrentrepos{{{p}}}\n"
+            preamblestuff += f"\\input{{{self.preamblepath}}}\n"
         return ("\\documentclass{article}\n"
                 + HEADER
-                + str(f"\\input{{{self.preambledir}}}\n" if self.preambledir else "") +\
-                langstr +
-                "\\title{Glossary (Auto-Generated)}\n"
+                + "\\defpath{MathHub}{" + self.mathhub_dir + "}\n"
+                + preamblestuff
+                + langstr
+                + "\\title{Glossary (Auto-Generated)}\n"
                 "\\begin{document}\n"
                 "\\maketitle\n\n"
                 + sellang
@@ -155,7 +161,7 @@ class Entry(object):
 
     def __str__(self):
         return ("\\begin{entry}{"
-                + self.keystr + "}"
+                + self.keystr + "}{" + self.repo + "}"
                 + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
                 + self.defstr.strip() + "\n"
                 + "\\end{entry}\n")
