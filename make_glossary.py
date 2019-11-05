@@ -23,7 +23,6 @@ HEADER = r"""
 {\item[#1]\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
-\newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 \usepackage{tikz}
 \usepackage[mh]{smglom}
