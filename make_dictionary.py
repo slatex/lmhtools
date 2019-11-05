@@ -35,7 +35,8 @@ class Dictionary(object):
         assert language in self.languages
         if symbol not in self.data[language]:
             self.data[language][symbol] = []
-        self.data[language][symbol].append(string)
+        if string not in self.data[language][symbol]:
+            self.data[language][symbol].append(string)
 
     def getEntries(self, keylang, otherlangs):
         allSymbols = set([symb for language in self.languages for symb in self.data[language]])
@@ -53,7 +54,7 @@ class Entry(object):
         self.keystr = keystr
         self.transl = transl
         self.gimport = r"\gimport[" + symb[0] + "]{" + symb[1] + "}"
-        self.repo = symb[0]
+        self.symb = symb
 
 def makeDictionary(mathhub_dir, gatherer, languages):
     dictionary = Dictionary(languages, mathhub_dir)
@@ -70,8 +71,8 @@ def makeDictionary(mathhub_dir, gatherer, languages):
 
     return dictionary
 
-def getRepos(entries):
-    return sorted(list(set([entry.repo for entry in entries])))
+# def getRepos(entries):
+#     return sorted(list(set([entry.repo for entry in entries])))
 
 def getLaTeXHeader(dictionary):
     # TODO: we only calculate entries here to extract repos (unnecessary!)
@@ -83,7 +84,7 @@ def getLaTeXHeader(dictionary):
     result += r"\usepackage{calbf}" + "\n"
     result += r"\usepackage[mh]{smglom}" + "\n"
     result += r"\defpath{MathHub}{" + dictionary.mathhub_dir + "}" + "\n"
-    result += r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}" + "\n"
+    # result += r"\mhcurrentrepos{" + ",".join(getRepos(entries)) + "}" + "\n"
     result += r"\usepackage{fullpage}" + "\n"
     result += r"\usepackage[utf8]{inputenc}" + "\n"
     babellangs = [LANG2BABEL[l] for l in dictionary.languages if l in LANG2BABEL]
@@ -99,8 +100,8 @@ def getLaTeXHeader(dictionary):
         # result += r'\XeTeXlinebreaklocale "zh"' + "\n"
     result += r"\usepackage{longtable}" + "\n"
     result += r"\title{Multi-Lingual Dictionary (Auto-Generated)\\" + "\n"
-    result += r"\small{Languages: " + ", ".join(langLabels) + r"}\\" + "\n"
-    result += r"\small{Topics: " + ", ".join(sorted([r.split("/")[-1].capitalize() for r in getRepos(entries)])) + r"}}" + "\n"
+    result += r"\small{Languages: " + ", ".join(langLabels) + r"}}" + "\n"
+    # result += r"\small{Topics: " + ", ".join(sorted([r.split("/")[-1].capitalize() for r in getRepos(entries)])) + r"}}" + "\n"
     result += r"\begin{document}" + "\n"
     result += r"\maketitle" + "\n"
     result += r"\tableofcontents" + "\n"
@@ -138,7 +139,7 @@ def getAsLaTeX(dictionary):
                     newcells += [r"{\fontspec[AutoFakeBold=4]{FandolFang}" + c + "}"]
                 else:
                     newcells += [c]
-            result += " & ".join(newcells) + r"\\" + "\n"
+            result += " & ".join(newcells) + r"\\" + "    % " + entry.symb[0] + "?" + entry.symb[1] + "\n"
         result += r"\end{longtable}" + "\n"
     result += r"\end{document}""" + "\n"
     return result
