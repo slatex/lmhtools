@@ -93,7 +93,7 @@ for filename in relevantfiles + extrafiles:
 
 
     
-glossary = Glossary(lang, mathhub_dir, os.path.join(mathhub_dir, root_repo, "../meta-inf/lib/preamble"))
+glossary = Glossary(lang, mathhub_dir)
 # glossary.fill(ctx.gatherer, allowunknownlang=True)
 
 for defi in defis:

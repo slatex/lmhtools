@@ -18,20 +18,18 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 """
 
 
-HEADER = r"""
-\newenvironment{entry}[2]%
-{\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
+HEADER = r"""\documentclass[class=article,mh,notes]{mikoslides}
+\input{localpaths}
+\libinput{preamble}
+\newenvironment{entry}[1]%
+{\item[#1]\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
-\newenvironment{entrynl}[4]%
-{#4\item[#1]\mhcurrentrepos{#2}\begin{mhmodnl}#3\begin{definition}[display=flow]}
-{\end{definition}\end{mhmodnl}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
 \usepackage{tikz}
 \usepackage[mh]{smglom}
 \usepackage{omdoc}
 
-% \input{localpaths}
 """
 
 import lmh_harvest as harvest
@@ -62,21 +60,20 @@ def findSurroundingDefinition(string, offset):
     begins = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(re_begin_definition, string)]
     ends = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(re_end_definition, string)]
     # find relevant begin/end
-    begins = [(p,o) for (p,o) in begins if p < offset]
+    begins = [(p,o) for (p,o) in begins if p <= offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
     if len(begins) == 0 or len(ends) == 0:
-        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment}}"
+        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. Offset: " + str(offset) + "}}"
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
 
 class Glossary(object):
-    def __init__(self, language, mathhub_dir, preamblepath = None):
+    def __init__(self, language, mathhub_dir):
         self.lang = language
         self.mathhub_dir = mathhub_dir
         self.entries = []
         self.repos = []
         self.covered_defis = set()
-        self.preamblepath = preamblepath
 
     def fillDefi(self, defi):
         defistr = defi["path"] + defi["offset"]   # unique for each defi
@@ -124,18 +121,9 @@ class Glossary(object):
             langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
             langstr += "\\XeTeXlinebreaklocale \"zh\"\n"
             langstr += "\\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt\n"
-
-        preamblestuff = ""
-        if self.preamblepath:
-            p = os.path.split(os.path.split(os.path.relpath(self.preamblepath, self.mathhub_dir))[0])[0]
-            preamblestuff = f"\\mhcurrentrepos{{{p}}}\n"
-            preamblestuff += f"\\input{{{self.preamblepath}}}\n"
-        return ("\\documentclass{article}\n"
-                + HEADER
-                + "\\defpath{MathHub}{" + self.mathhub_dir + "}\n"
-                + preamblestuff
-                + langstr
-                + "\\title{Glossary (Auto-Generated)}\n"
+        return (HEADER +
+                langstr +
+                "\\title{Glossary (Auto-Generated)}\n"
                 "\\begin{document}\n"
                 "\\maketitle\n\n"
                 + sellang
@@ -155,32 +143,19 @@ class Entry(object):
         if self.mod_name[0] == "?":
             raise Exception("weird: " + self.mod_name)
         self.lang = lang
-        if self.lang == "?":
-            self.lang = "en"
         self.pathpart = pathpart
-        self.usemhmodnl = False
-        if self.pathpart.endswith("." + self.lang):
-            self.usemhmodnl = True
-            self.pathpart = self.pathpart[:-len("." + self.lang)]
+        for ending in [".en", ".de", ".ru", ".zhs", ".tu", ".ro"]:
+            if self.pathpart.endswith(ending):
+                self.pathpart = self.pathpart[:-len(ending)]
+                break
 
 
     def __str__(self):
-        gimport = ""
-        if "$" in self.keystr and "\\" in self.keystr:
-            gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}"
-        if self.usemhmodnl:
-            return ("\\begin{entrynl}{"
-                    + self.keystr + "}{" + self.repo + "}{"
-                    + f"[path={self.pathpart}]{{{self.mod_name}}}{{{self.lang}}}" + "}{"
-                    + gimport + "}"
-                    + self.defstr.strip() + "\n"
-                    + "\\end{entrynl}\n")
-        else:
-            return ("\\begin{entry}{"
-                    + self.keystr + "}{" + self.repo + "}"
-                    + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
-                    + self.defstr.strip() + "\n"
-                    + "\\end{entry}\n")
+        return ("\\begin{entry}{"
+                + self.keystr + "}"
+                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
+                + self.defstr.strip() + "\n"
+                + "\\end{entry}\n")
 
 
 if __name__ == "__main__":
@@ -199,6 +174,6 @@ if __name__ == "__main__":
     for directory in args.DIRECTORY:
         harvest.gather_data_for_all_repos(directory, ctx)
     
-    glossary = Glossary(lang, mathhub_dir, mathhub_dir + "/smglom/meta-inf/lib/preamble")
+    glossary = Glossary(lang, mathhub_dir)
     glossary.fill(ctx.gatherer)
     print(glossary)
