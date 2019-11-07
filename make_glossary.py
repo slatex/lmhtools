@@ -21,8 +21,8 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 HEADER = r"""\documentclass[class=article,mh,notes]{mikoslides}
 \input{localpaths}
 \libinput{preamble}
-\newenvironment{entry}[1]%
-{\item[#1]\begin{module}[id=foo]\begin{definition}[display=flow]}
+\newenvironment{entry}[2]%
+{\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
 {\end{definition}\end{module}}
 \newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
 
@@ -63,7 +63,7 @@ def findSurroundingDefinition(string, offset):
     begins = [(p,o) for (p,o) in begins if p <= offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
     if len(begins) == 0 or len(ends) == 0:
-        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. Offset: " + str(offset) + "}}"
+        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. line " + f"{offset[0]}:{offset[1]}" + "}}"
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
 
@@ -152,7 +152,8 @@ class Entry(object):
 
     def __str__(self):
         return ("\\begin{entry}{"
-                + self.keystr + "}"
+                + self.keystr + "}{"
+                + self.repo + "}"
                 + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
                 + self.defstr.strip() + "\n"
                 + "\\end{entry}\n")
