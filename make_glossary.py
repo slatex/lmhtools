@@ -153,7 +153,7 @@ class Entry(object):
         refstr = hex(hash(self.defstr))
         refstr = refstr[refstr.index('x'):]
         keystr = self.keystr
-        gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}"
+        gimport = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
         if "$" in keystr and "\\" in keystr:
             keystr =  gimport + keystr
         if self.reffing == "set":
