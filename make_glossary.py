@@ -67,8 +67,13 @@ class Glossary(object):
             return
         self.covered_defis.add(defistr)
 
+        isModule = False
         with open(defi["path"], "r") as fp:
-            filestr = harvest.preprocess_string(fp.read())   # removes comments, reduces risk of non-matching file offsets
+            fstr = fp.read()
+            filestr = harvest.preprocess_string(fstr)   # removes comments, reduces risk of non-matching file offsets
+            if "\\begin{module}" in fstr:
+                isModule = True
+
         defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(defi["offset"]))
 
         repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
@@ -84,7 +89,7 @@ class Glossary(object):
         if repopath not in self.repos:
             self.repos.append(repopath)
         importstr = ""
-        self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4]))
+        self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4], isModule))
 
     def fill(self, gatherer, allowunknownlang = False):
         for defi in gatherer.defis:
@@ -101,7 +106,7 @@ class Glossary(object):
 
 
 class Entry(object):
-    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart):
+    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart, isModule):
         self.keystr = keystr
         self.defstr = defstr
         self.importstr = importstr
@@ -115,13 +120,22 @@ class Entry(object):
             if self.pathpart.endswith(ending):
                 self.pathpart = self.pathpart[:-len(ending)]
                 break
+        self.isModule = isModule
 
 
     def __str__(self):
+        if self.isModule:
+            usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
+        elif "/" in self.pathpart:
+            usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + ",ext=tex]{" + self.mod_name + "}"
+        else:
+            usestr = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
+
+
         return ("\\begin{entry}{"
                 + self.keystr + "}{"
                 + self.repo + "}"
-                + "\n\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}\n"
+                + "\n" + usestr + "\n"
                 + self.defstr.strip() + "\n"
                 + "\\end{entry}\n")
 
