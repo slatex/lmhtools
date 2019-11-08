@@ -153,16 +153,21 @@ class Entry(object):
         refstr = hex(hash(self.defstr))
         refstr = refstr[refstr.index('x'):]
         keystr = self.keystr
-        gimport = ""
+        gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}"
         if "$" in keystr and "\\" in keystr:
-            gimport = "\\gimport[" + self.repo + "]{" + self.mod_name + "}"
             keystr =  gimport + keystr
         if self.reffing == "set":
             keystr = "\\hypertarget{" + refstr + "}{" + keystr + "}"
         elif self.reffing == "syn":
-            return "\\synonymref{" + keystr + "}{" + refstr + "}{" + gimport + self.reftargetkey + "}\n"
+            rtk = self.reftargetkey
+            if "$" in rtk or "\\" in rtk:
+                rtk = gimport + rtk
+            return "\\synonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
         elif self.reffing == "see":
-            return "\\seeref{" + keystr + "}{" + refstr + "}{" + gimport + self.reftargetkey + "}\n"
+            rtk = self.reftargetkey
+            if "$" in rtk or "\\" in rtk:
+                rtk = gimport + rtk
+            return "\\seeref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
 
         if self.isModule:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
