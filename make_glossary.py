@@ -153,6 +153,8 @@ class Entry(object):
         refstr = hex(hash(self.defstr))
         refstr = refstr[refstr.index('x'):]
         keystr = self.keystr
+        if "$" in keystr:
+            keystr = "\\gimport[" + self.repo + "]{" + self.mod_name + "}" + keystr
         if self.reffing == "set":
             keystr = "\\hypertarget{" + refstr + "}{" + self.keystr + "}"
         elif self.reffing == "syn":
