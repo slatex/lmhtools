@@ -156,11 +156,11 @@ class Entry(object):
         if "$" in keystr:
             keystr = "\\gimport[" + self.repo + "]{" + self.mod_name + "}" + keystr
         if self.reffing == "set":
-            keystr = "\\hypertarget{" + refstr + "}{" + self.keystr + "}"
+            keystr = "\\hypertarget{" + refstr + "}{" + keystr + "}"
         elif self.reffing == "syn":
-            return "\\synonymref{" + self.keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
+            return "\\synonymref{" + keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
         elif self.reffing == "see":
-            return "\\seeref{" + self.keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
+            return "\\seeref{" + keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
 
         if self.isModule:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
