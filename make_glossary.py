@@ -160,12 +160,12 @@ class Entry(object):
             keystr = "\\hypertarget{" + refstr + "}{" + keystr + "}"
         elif self.reffing == "syn":
             rtk = self.reftargetkey
-            if "$" in rtk or "\\" in rtk:
+            if "$" in rtk and "\\" in rtk:
                 rtk = gimport + rtk
             return "\\synonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
         elif self.reffing == "see":
             rtk = self.reftargetkey
-            if "$" in rtk or "\\" in rtk:
+            if "$" in rtk and "\\" in rtk:
                 rtk = gimport + rtk
             return "\\seeref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
 
