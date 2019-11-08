@@ -49,17 +49,18 @@ def findSurroundingDefinition(string, offset):
     begins = [(p,o) for (p,o) in begins if p <= offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
     if len(begins) == 0 or len(ends) == 0:
-        return "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. line " + f"{offset[0]}:{offset[1]}" + "}}"
+        return None
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
 
 class Glossary(object):
-    def __init__(self, language, mathhub_dir):
+    def __init__(self, language, mathhub_dir, uselinks = True):
         self.lang = language
         self.mathhub_dir = mathhub_dir
         self.entries = []
         self.repos = []
         self.covered_defis = set()
+        self.uselinks = uselinks
 
     def fillDefi(self, defi):
         defistr = defi["path"] + defi["offset"]   # unique for each defi
@@ -74,7 +75,12 @@ class Glossary(object):
             if "\\begin{module}" in fstr:
                 isModule = True
 
-        defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(defi["offset"]))
+        offset = defi["offset"]
+        defstr = findSurroundingDefinition(filestr, harvest.pos_str_to_int_tuple(offset))
+        isError = False
+        if not defstr:
+            isError = True
+            defstr = "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. line " + f"{offset[0]}:{offset[1]}" + "}}"
 
         repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
         postpath = None
@@ -88,8 +94,7 @@ class Glossary(object):
         repopath = os.sep.join(repopath)
         if repopath not in self.repos:
             self.repos.append(repopath)
-        importstr = ""
-        self.entries.append(Entry(defi["string"], defstr, repopath, importstr, defi["mod_name"], defi["lang"], "/".join(postpath)[:-4], isModule))
+        self.entries.append(Entry(defi["string"], defstr, repopath, defi["mod_name"], "/".join(postpath)[:-4], isModule, isError, defi["name"]))
 
     def fill(self, gatherer, allowunknownlang = False):
         for defi in gatherer.defis:
@@ -100,30 +105,61 @@ class Glossary(object):
             self.fillDefi(defi)
 
     def __str__(self):
+        if self.uselinks:
+            deftoentries = {}
+            for e in self.entries:
+                if e.isError: continue
+                if e.defstr not in deftoentries:
+                    deftoentries[e.defstr] = []
+                deftoentries[e.defstr].append(e)
+            for k in deftoentries:
+                displayed = deftoentries[k][0]
+                displayed.reffing = "set"
+                for e in deftoentries[k][1:]:
+                    e.reftargetkey = displayed.keystr
+                    if displayed.symbName == e.symbName:
+                        e.reffing = "syn"
+                    else:
+                        e.reffing = "see"
+
+
+
         return ("\\begin{smglossary}\n"
                 + "\n\n".join([str(e) for e in sorted(self.entries, key=lambda e : e.keystr)])
                 + "\\end{smglossary}\n")
 
 
 class Entry(object):
-    def __init__(self, keystr, defstr, repo, importstr, mod_name, lang, pathpart, isModule):
+    def __init__(self, keystr, defstr, repo, mod_name, pathpart, isModule, isError, symbName):
         self.keystr = keystr
         self.defstr = defstr
-        self.importstr = importstr
         self.repo = repo
         self.mod_name = mod_name
         if self.mod_name[0] == "?":
             raise Exception("weird: " + self.mod_name)
-        self.lang = lang
         self.pathpart = pathpart
         for ending in [".en", ".de", ".ru", ".zhs", ".tu", ".ro"]:
             if self.pathpart.endswith(ending):
                 self.pathpart = self.pathpart[:-len(ending)]
                 break
         self.isModule = isModule
+        self.isError = isError
+        self.symbName = symbName
+        self.reffing = None
+        self.reftargetkey = None
 
 
     def __str__(self):
+        refstr = hex(hash(self.defstr))
+        refstr = refstr[refstr.index('x'):]
+        keystr = self.keystr
+        if self.reffing == "set":
+            keystr = "\\hypertarget{" + refstr + "}{" + self.keystr + "}"
+        elif self.reffing == "syn":
+            return "\\synonymref{" + self.keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
+        elif self.reffing == "see":
+            return "\\seeref{" + self.keystr + "}{" + refstr + "}{" + self.reftargetkey + "}\n"
+
         if self.isModule:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
         elif "/" in self.pathpart:
@@ -133,7 +169,7 @@ class Entry(object):
 
 
         return ("\\begin{entry}{"
-                + self.keystr + "}{"
+                + keystr + "}{"
                 + self.repo + "}"
                 + "\n" + usestr + "\n"
                 + self.defstr.strip() + "\n"
