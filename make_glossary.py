@@ -18,20 +18,6 @@ run this from https://gl.mathhub.info/smglom/meta-inf/applications (i.e. create 
 """
 
 
-HEADER = r"""\documentclass[class=article,mh,notes]{mikoslides}
-\input{localpaths}
-\libinput{preamble}
-\newenvironment{entry}[2]%
-{\item[#1]\mhcurrentrepos{#2}\begin{module}[id=foo]\begin{definition}[display=flow]}
-{\end{definition}\end{module}}
-\newenvironment{smglossary}{\begin{itemize}}{\end{itemize}}
-
-\usepackage{tikz}
-\usepackage[mh]{smglom}
-\usepackage{omdoc}
-
-"""
-
 import lmh_harvest as harvest
 import re
 import os
@@ -109,28 +95,9 @@ class Glossary(object):
             self.fillDefi(defi)
 
     def __str__(self):
-        sellang = ""
-        if self.lang in LANG2BABEL:
-            if self.lang == "en":
-                langstr = "\\usepackage[english]{babel}\n"
-            else:
-                langstr = "\\usepackage[main=english," + LANG2BABEL[self.lang] + "]{babel}\n"
-                sellang = "\\selectlanguage{" + LANG2BABEL[self.lang] + "}\n"
-        elif self.lang in ["zhs", "zht"]:
-            langstr = "\\usepackage{fontspec}\n"
-            langstr += "\\setmainfont[AutoFakeBold=4]{FandolFang}\n"
-            langstr += "\\XeTeXlinebreaklocale \"zh\"\n"
-            langstr += "\\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt\n"
-        return (HEADER +
-                langstr +
-                "\\title{Glossary (Auto-Generated)}\n"
-                "\\begin{document}\n"
-                "\\maketitle\n\n"
-                + sellang
-                + "\\begin{smglossary}\n"
+        return ("\\begin{smglossary}\n"
                 + "\n\n".join([str(e) for e in sorted(self.entries, key=lambda e : e.keystr)])
-                + "\\end{smglossary}\n"
-                + r"\end{document}")
+                + "\\end{smglossary}\n")
 
 
 class Entry(object):
