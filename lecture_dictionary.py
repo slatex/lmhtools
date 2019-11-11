@@ -13,7 +13,6 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Script for generating a dictionary for a lecture")
 parser.add_argument("INFILE", help=".tex file for which the dictionary shall be generated (typically path/to/notes.tex)")
-parser.add_argument("OUTFILE", help="output file")
 args = parser.parse_args()
 
 mathhub_dir = harvest.get_mathhub_dir(args.INFILE)
@@ -108,5 +107,4 @@ for defi in ctx.gatherer.defis:
             lang = "en"
         dictionary.addEntry(symb, lang, defi["string"])
 
-with open(args.OUTFILE, "w") as fp:
-    fp.write(getAsLaTeX(dictionary))
+writeLaTeX(dictionary)
