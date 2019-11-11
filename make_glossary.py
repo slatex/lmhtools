@@ -93,7 +93,7 @@ class Glossary(object):
         isError = False
         if not defstr:
             isError = True
-            defstr = "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. line " + f"{offset[0]}:{offset[1]}" + "}}"
+            defstr = "\\textcolor{red}{\\textbf{Error: The \\\\defi does not appear to be inside a definition environment. line " + offset + "}}"
 
         repopath = os.path.relpath(os.path.realpath(defi["path"]), self.mathhub_dir).split(os.sep)
         postpath = None
