@@ -34,6 +34,11 @@ re_end_definition = re.compile(
         r"\{definition\}"
         )
 
+re_begin_omtext = re.compile(r"\\begin\s*\{omtext\}\s*(?:\[[^\]]*\])?")
+re_end_omtext = re.compile(r"\\end\s*\{omtext\}")
+re_begin_assertion = re.compile(r"\\begin\s*\{assertion\}\s*(?:\[[^\]]*\])?")
+re_end_assertion = re.compile(r"\\end\s*\{assertion\}")
+
 re_trefi1 = re.compile(   # stuff like \trefi{
         r"\\((at|mt|t|Mt|T)ref(i|ii|iii|iv)s?)\{"
         )
@@ -42,9 +47,9 @@ re_trefi2 = re.compile(   # stuff like \trefi[?
         r"\\((at|mt|t|Mt|T)ref(i|ii|iii|iv)s?)\[\?"
         )
 
-def findSurroundingDefinition(string, offset):
-    begins = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(re_begin_definition, string)]
-    ends = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(re_end_definition, string)]
+def findSurroundingEnvironment(string, startregex, endregex, offset):
+    begins = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(startregex, string)]
+    ends = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(endregex, string)]
     # find relevant begin/end
     begins = [(p,o) for (p,o) in begins if p <= offset]
     ends = [(p,o) for (p,o) in ends if p > offset]
@@ -52,6 +57,14 @@ def findSurroundingDefinition(string, offset):
         return None
     return string[begins[-1][1]:ends[0][1]]    # without definition environment
 
+def findSurroundingDefinition(string, offset):
+    result = findSurroundingEnvironment(string, re_begin_definition, re_end_definition, offset)
+    if not result:
+        result = findSurroundingEnvironment(string, re_begin_omtext, re_end_omtext, offset)
+    if not result:
+        result = findSurroundingEnvironment(string, re_begin_assertion, re_end_assertion, offset)
+
+    return result
 
 class Glossary(object):
     def __init__(self, language, mathhub_dir, uselinks = True):
