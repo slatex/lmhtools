@@ -34,8 +34,8 @@ re_end_definition = re.compile(
         r"\{definition\}"
         )
 
-re_begin_omtext = re.compile(r"\\begin\s*\{omtext\}\s*(?:\[[^\]]*\])?")
-re_end_omtext = re.compile(r"\\end\s*\{omtext\}")
+re_begin_omtext = re.compile(r"\\begin\s*\{n?omtext\}\s*(?:\[[^\]]*\])?")
+re_end_omtext = re.compile(r"\\end\s*\{n?omtext\}")
 re_begin_assertion = re.compile(r"\\begin\s*\{assertion\}\s*(?:\[[^\]]*\])?")
 re_end_assertion = re.compile(r"\\end\s*\{assertion\}")
 
