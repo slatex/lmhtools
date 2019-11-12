@@ -17,6 +17,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Script for generating a glossary for a lecture")
 parser.add_argument("INFILE", help=".tex file for which the glossary shall be generated (typically path/to/notes.tex)")
+parser.add_argument("LANGUAGE", help="language of the glossary (e.g. 'en' or 'de')")
 parser.add_argument("OUTFILE", help="output file")
 args = parser.parse_args()
 
@@ -67,8 +68,6 @@ logger = harvest.SimpleLogger(2)
 mygraph = graph.Graph()
 graph.fill_graph(mathhub_dir, root_repo, root_doc, mygraph, ONLY_COVERED_PART)
 
-
-lang = "en"
 ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
 
 relevantfiles = \
@@ -76,12 +75,10 @@ relevantfiles = \
         list(mygraph.module_nodes.keys()) +\
         [k[0] for k in mygraph.omgroup_nodes.keys()]
 
-print("\n".join(relevantfiles))
-
 extrafiles = []
 for filename in relevantfiles:
     # check computer.en.tex if computer.tex is used
-    lf = filename[:-4]+".en.tex"
+    lf = filename[:-4]+"." + args.LANGUAGE + ".tex"
     if os.path.isfile(lf):
         extrafiles.append(lf)
 
@@ -93,8 +90,7 @@ for filename in relevantfiles + extrafiles:
 
 
     
-glossary = Glossary(lang, mathhub_dir)
-# glossary.fill(ctx.gatherer, allowunknownlang=True)
+glossary = Glossary(args.LANGUAGE, mathhub_dir)
 
 for defi in defis:
     glossary.fillDefi(defi)
@@ -102,9 +98,8 @@ for defi in defis:
 defiIndex = {}
 
 for defi in ctx.gatherer.defis:
-    defiIndex[(defi["mod_name"], defi["name"])] = defi
-
-print(defiIndex)
+    if defi["lang"] == args.LANGUAGE or (defi["lang"] == "?" and args.LANGUAGE == "en"):
+        defiIndex[(defi["mod_name"], defi["name"])] = defi
 
 for trefi in trefis:
     k = (trefi["target_mod"], trefi["name"])
@@ -112,9 +107,6 @@ for trefi in trefis:
         print("Failed to find definition for trefi " + k[0] + "?" + k[1] + " in " + trefi["path"])
         continue
     glossary.fillDefi(defiIndex[k])
-
-print("RELEVANT DEFIS:", defis)
-print("RELEVANT TREFIS:", trefis)
 
 with open(args.OUTFILE, "w") as fp:
     fp.write(str(glossary))
