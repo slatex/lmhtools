@@ -92,13 +92,16 @@ for filename in relevantfiles + extrafiles:
     
 glossary = Glossary(args.LANGUAGE, mathhub_dir)
 
+acceptDefi = lambda defi : defi["lang"] == args.LANGUAGE or (defi["lang"] == "?" and args.LANGUAGE == "en")
+
 for defi in defis:
-    glossary.fillDefi(defi)
+    if acceptDefi(defi):
+        glossary.fillDefi(defi)
 
 defiIndex = {}
 
 for defi in ctx.gatherer.defis:
-    if defi["lang"] == args.LANGUAGE or (defi["lang"] == "?" and args.LANGUAGE == "en"):
+    if acceptDefi(defi):
         defiIndex[(defi["mod_name"], defi["name"])] = defi
 
 for trefi in trefis:
