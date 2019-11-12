@@ -34,10 +34,12 @@ re_end_definition = re.compile(
         r"\{definition\}"
         )
 
-re_begin_omtext = re.compile(r"\\begin\s*\{n?omtext\}\s*(?:\[[^\]]*\])?")
-re_end_omtext = re.compile(r"\\end\s*\{n?omtext\}")
-re_begin_assertion = re.compile(r"\\begin\s*\{assertion\}\s*(?:\[[^\]]*\])?")
-re_end_assertion = re.compile(r"\\end\s*\{assertion\}")
+# alternative environments for definitions
+def_alternatives = ["n?omtext", "assertion", "example", "example"]
+re_begin_def_alternatives = \
+    [re.compile(r"\\begin\s*\{" + e + r"\}\s*(?:\[[^\]]*\])?") for e in def_alternatives]
+re_end_def_alternatives = \
+    [re.compile(r"\\end\s*\{" + e + r"\}") for e in def_alternatives]
 
 re_trefi1 = re.compile(   # stuff like \trefi{
         r"\\((at|mt|t|Mt|T)ref(i|ii|iii|iv)s?)\{"
@@ -59,12 +61,13 @@ def findSurroundingEnvironment(string, startregex, endregex, offset):
 
 def findSurroundingDefinition(string, offset):
     result = findSurroundingEnvironment(string, re_begin_definition, re_end_definition, offset)
-    if not result:
-        result = findSurroundingEnvironment(string, re_begin_omtext, re_end_omtext, offset)
-    if not result:
-        result = findSurroundingEnvironment(string, re_begin_assertion, re_end_assertion, offset)
-
-    return result
+    if result:
+        return result
+    for (re_begin, re_end) in zip(re_begin_def_alternatives, re_end_def_alternatives):
+        result = findSurroundingEnvironment(string, re_begin, re_end, offset)
+        if result:
+            return result
+    return None
 
 class Glossary(object):
     def __init__(self, language, mathhub_dir, uselinks = True):
