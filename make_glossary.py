@@ -178,12 +178,12 @@ class Entry(object):
             rtk = self.reftargetkey
             if "$" in rtk and "\\" in rtk:
                 rtk = gimport + rtk
-            return "\\synonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
+            return "\\smsynonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
         elif self.reffing == "see":
             rtk = self.reftargetkey
             if "$" in rtk and "\\" in rtk:
                 rtk = gimport + rtk
-            return "\\seeref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
+            return "\\smjointdefref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
 
         if self.isModule:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
@@ -193,12 +193,12 @@ class Entry(object):
             usestr = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
 
 
-        return ("\\begin{entry}{"
+        return ("\\begin{smentry}{"
                 + keystr + "}{"
                 + self.repo + "}"
                 + "\n" + usestr + "\n"
                 + self.defstr.strip() + "\n"
-                + "\\end{entry}\n")
+                + "\\end{smentry}\n")
 
 
 if __name__ == "__main__":
