@@ -169,28 +169,28 @@ class Entry(object):
         refstr = hex(hash(self.defstr))
         refstr = refstr[refstr.index('x'):]
         keystr = self.keystr
-        gimport = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
-        if "$" in keystr and "\\" in keystr:
-            keystr =  gimport + keystr
-        if self.reffing == "set":
-            keystr = "\\hypertarget{" + refstr + "}{" + keystr + "}"
-        elif self.reffing == "syn":
-            rtk = self.reftargetkey
-            if "$" in rtk and "\\" in rtk:
-                rtk = gimport + rtk
-            return "\\smsynonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
-        elif self.reffing == "see":
-            rtk = self.reftargetkey
-            if "$" in rtk and "\\" in rtk:
-                rtk = gimport + rtk
-            return "\\smjointdefref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
-
         if self.isModule:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
         elif "/" in self.pathpart:
             usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + ",ext=tex]{" + self.mod_name + "}"
         else:
             usestr = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
+
+        if "$" in keystr and "\\" in keystr:
+            keystr =  usestr + keystr
+        if self.reffing == "set":
+            keystr = "\\hypertarget{" + refstr + "}{" + keystr + "}"
+        elif self.reffing == "syn":
+            rtk = self.reftargetkey
+            if "$" in rtk and "\\" in rtk:
+                rtk = usestr + rtk
+            return "\\smsynonymref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
+        elif self.reffing == "see":
+            rtk = self.reftargetkey
+            if "$" in rtk and "\\" in rtk:
+                rtk = usestr + rtk
+            return "\\smjointdefref{" + keystr + "}{" + refstr + "}{" + rtk + "}\n"
+
 
 
         return ("\\begin{smentry}{"
