@@ -170,9 +170,9 @@ class Entry(object):
         refstr = refstr[refstr.index('x'):]
         keystr = self.keystr
         if self.isModule:
-            usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
+            usestr = "\\usemhmodule[mhrepos=" + self.repo + ",path=" + self.pathpart + "]{" + self.mod_name + "}"
         elif "/" in self.pathpart:
-            usestr = "\\usemhmodule[repos=" + self.repo + ",path=" + self.pathpart + ",ext=tex]{" + self.mod_name + "}"
+            usestr = "\\usemhmodule[mhrepos=" + self.repo + ",path=" + self.pathpart + ",ext=tex]{" + self.mod_name + "}"
         else:
             usestr = "\\guse[" + self.repo + "]{" + self.mod_name + "}"
 
