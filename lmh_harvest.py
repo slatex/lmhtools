@@ -600,7 +600,7 @@ def harvest_nl(string, name, lang, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
@@ -689,7 +689,7 @@ def harvest_mono(string, name, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
@@ -781,7 +781,7 @@ def harvest_text(string, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
