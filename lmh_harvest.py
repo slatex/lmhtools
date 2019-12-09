@@ -600,8 +600,8 @@ def harvest_nl(string, name, lang, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not "m" in match.group("start").lower():
-                        ctx.log(f"Expected mtrefi for '{match.group(0)}'", 1,
+                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
@@ -689,8 +689,8 @@ def harvest_mono(string, name, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not "m" in match.group("start").lower():
-                        ctx.log(f"Expected mtrefi for '{match.group(0)}'", 1,
+                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
@@ -781,8 +781,8 @@ def harvest_text(string, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not "m" in match.group("start").lower():
-                        ctx.log(f"Expected mtrefi for '{match.group(0)}'", 1,
+                    if not in match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
