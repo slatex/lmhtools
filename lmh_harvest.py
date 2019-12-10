@@ -712,6 +712,8 @@ def harvest_mono(string, name, ctx):
                 path = os.path.join(repo, "source", file_name)
             elif "path" in params:
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
+            elif "dir" in params:
+                path = os.path.join(repo, "source", params["dir"], file_name)
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
             if token_type == TOKEN_IMPORTMHMODULE:
