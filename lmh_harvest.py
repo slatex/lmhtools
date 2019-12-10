@@ -703,7 +703,10 @@ def harvest_mono(string, name, ctx):
             params = get_params(match.group("params"))
             repo = ctx.repo
             if "repos" in params:
+                ctx.log("Warning: Use of parameter 'repos' is deprecated -- use mhrepos instead: ", 2, get_file_pos_str(string, match.start()))
                 repo = os.path.join(ctx.mathhub_path, params["repos"])
+            if "mhrepos" in params:
+                repo = os.path.join(ctx.mathhub_path, params["mhrepos"])
             file_name = match.group("arg") + ".tex"
             if token_type == TOKEN_MHINPUTREF:
                 path = os.path.join(repo, "source", file_name)
