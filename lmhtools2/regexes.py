@@ -59,7 +59,7 @@ re_end_mhmodnl = re.compile(
 re_arg = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
 
 re_defi = re.compile(
-        r"\\(?P<start>d|D|ad)ef(?P<arity>i|ii|iii|iv)s?\s*"
+        r"\\(?P<start>d|D|ad)ef(?P<arity>i|ii|iii|iv)(?P<plurals>s?)\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -80,8 +80,8 @@ re_end_gviewnl = re.compile(
         r"\\end\s*\{gviewnl\}"
         ) 
 
-re_tref = re.compile(
-        r"\\(?P<start>at|mt|t|Mt|T|d|D)ref(?P<arity>i|ii|iii|iv)s?\s*"
+re_trefi = re.compile(
+        r"\\(?P<start>at|mt|t|Mt|T|d|D)ref(?P<arity>i|ii|iii|iv)(?P<plurals>s?)\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg0>" + re_arg + r")\}"           # arg0
         r"(?:\s*\{(?P<arg1>" + re_arg + r")\})?"   # arg1
@@ -168,7 +168,7 @@ re_guse = re.compile(
         )
 
 re_mhinputref = re.compile(
-        r"\\(mhinputref|input)\s*"
+        r"\\(?P<command>(mhinputref|input)\*?)\s*"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
@@ -179,7 +179,7 @@ REGEXES = [
         (re_defi, TOKEN_DEFI),
         (re_begin_gviewnl, TOKEN_BEGIN_GVIEWNL),
         (re_end_gviewnl, TOKEN_END_GVIEWNL),
-        (re_tref, TOKEN_TREFI),
+        (re_trefi, TOKEN_TREFI),
         (re_begin_modsig, TOKEN_BEGIN_MODSIG),
         (re_end_modsig, TOKEN_END_MODSIG),
         (re_sym, TOKEN_SYMI),
@@ -206,4 +206,42 @@ def tokenize(string, regexes):
     for (regex, token_type) in regexes:
         tokens += [(match, token_type) for match in re.finditer(regex, string)]
     return sorted(tokens, key = lambda e : e[0].start())
+
+
+def get_params(param_str):
+    ''' returns dictionary of comma-separated key=value pairs '''
+    if param_str == None:
+        return { }
+
+    return {
+            param.group("key") : param.group("val")
+                for param in re.finditer(get_params.re_param, param_str)
+        }
+
+get_params.re_param = re.compile(
+        r"(?P<key>[a-zA-Z0-9_-]+)"
+        r"(?:=(?P<val>(?:[^\{\},]+)|(?:\{[^\{\}]+\})))?")
+
+
+def get_args(match, is_symi, ctx, position):
+    ''' Highly specialized code - only use with great caution! '''
+    possible_args = ["arg0", "arg1", "arg2", "arg3"]
+    if not is_symi:
+        possible_args.append("arg4")
+
+    args = [match.group(x) for x in possible_args]
+    args = [arg for arg in args if arg != None]
+    other_arg = None
+    one_plus = ""
+    if not is_symi and match.group("start").startswith("a"):        # adefi etc.
+        one_plus = "1+"
+        other_arg = args[0]
+        args = args[1:]
+
+    arity = {"i" : 1, "ii" : 2, "iii" : 3, "iv" : 4}[match.group("arity")]
+    if len(args) != arity:
+        ctx.logger.log(LogEntry(LOG_ERROR,
+            f"Arity mismatch (needs {one_plus}{arity} arguments, but found {one_plus}{len(args)}): '{match.group(0)}'",
+            position, E_STEX_PARSE_ERROR))
+    return (args, other_arg)
 

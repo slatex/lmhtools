@@ -44,6 +44,12 @@ class LmhContext(object):
         dir_ = '/'.join(restpath[:-1])
         return Position(repo=repo, directory=dir_, filename=filename, path=path)
 
+    def find_repo(self, repo):
+        for r in self.repos:
+            if repo == r.repo:
+                return r
+        return None
+
 class LmhRepo(object):
     def __init__(self, directory, ctx):
         self.ctx = ctx

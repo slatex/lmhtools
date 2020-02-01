@@ -128,38 +128,133 @@ class LmhMacro(TexNode):
 class DEFI(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+        self.params = get_params(match.group('params'))
+        args, other_arg = get_args(match, False, self.ctx, self.position)
+        self.symb = self.params['name'] if 'name' in self.params else '-'.join(args)
+        self.display = other_arg if other_arg else ' '.join(args)
+        if match.group('start')[0] == 'D':
+            self.display[0] = self.display[0].upper()
+        if match.group('plurals'):
+            self.display += 's'
 
 class TREFI(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+        params = match.group('params')
+        args, other_arg = get_args(match, False, self.ctx, self.position)
+        assert not other_arg
+        self.display = ' '.join(args)
+        if match.group('start').isupper():
+            self.display[0] = self.display[0].upper()
+        if match.group('plurals'):
+            self.display += 's'
+        self.isdrefi = 'd' in match.group('start')[0].lower()
+
+        # by default, target module is current file
+        self.target_mod = self.position.filename
+        self.symb = '-'.join(args)
+        # with params, the defaults can be changed
+        if params:
+            self.target_mod = params
+            if '?' in params:
+                self.target_mod = params.split('?')[0]
+                self.symb = params.split('?')[1]
+                if not match.group('start').lower()[0] in ['m', 'd']:
+                    self.ctx.logger.log(
+                            LogEntry(LOG_ERROR, f'Expected trefi or drefi for "{match.group()}"',
+                                self.position, E_STEX_PARSE_ERROR))
+
 
 class SYMI(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+        args, other_arg = get_args(match, True, self.ctx, self.position)
+        assert not other_arg
+        self.symb = '-'.join(args)
+        self.params = get_params(match.group('params'))
 
 class SYMDEF(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+        self.params = get_params(match.group('params'))
+        self.symb = self.params['name'] if 'name' in self.params else match.group('arg0')
 
 class IMPORTMHMODULE(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+        self.params = get_params(match.group("params"))
+
+        repo = self.position.repo
+        if 'repos' in params:
+            self.ctx.logger.log(
+                    LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
+                        self.position, E_STEX_PARSE_ERROR))
+            repo = params['repos']
+        if 'mhrepos' in params:
+            repo = params['mhrepos']
+        dir_ = None
+        path = None
+        mod = match.group('arg')
+        if 'dir' in self.params:
+            dir_ = self.params['dir']
+        if 'path' in self.params:
+            r = self.ctx.find_repo(repo)
+            path = os.path.join(r.path, 'source', params['path'], mod + '.tex')
+        self.target_position = Position(repo=repo, directory=dir_, file_name=mod, path=path)
+
 
 class USEMHMODULE(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
 
+        repo = self.position.repo
+        if 'repos' in params:
+            self.ctx.logger.log(
+                    LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
+                        self.position, E_STEX_PARSE_ERROR))
+            repo = params['repos']
+        if 'mhrepos' in params:
+            repo = params['mhrepos']
+        dir_ = None
+        path = None
+        mod = match.group('arg')
+        if 'dir' in self.params:
+            dir_ = self.params['dir']
+        if 'path' in self.params:
+            r = self.ctx.find_repo(repo)
+            path = os.path.join(r.path, 'source', params['path'], mod + '.tex')
+        self.target_position = Position(repo=repo, directory=dir_, file_name=mod, path=path)
+
+class MHINPUTREF(LmhMacro):
+    def __init__(self, parent, match):
+        LmhMacro.__init__(self, parent, match)
+
+        repo = self.position.repo
+        params = match.group('params')
+        if params:
+            repo = params
+        a = match.group('arg')
+        file_name = a.split('/')[-1]
+        dir_ = a.split('/')[:-1]
+        self.target_position = Position(repo=repo, file_name=file_name, directory = dir_ if dir_ else None)
+
 class GIMPORT(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
+
+        self.target_repo = match.group('params')
+        if not self.target_repo:
+            self.target_repo = self.position.repo
+        self.target_mod = match.group('arg')
 
 class GUSE(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
 
-class MHINPUTREF(LmhMacro):
-    def __init__(self, parent, match):
-        LmhMacro.__init__(self, parent, match)
+        self.target_repo = match.group('params')
+        if not self.target_repo:
+            self.target_repo = self.position.repo
+        self.target_mod = match.group('arg')
 
 
 # ENVIRONMENTS
@@ -172,6 +267,14 @@ class LmhEnvironment(TexNode):
 class MODULE(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_MODULE)
+
+        self.params = get_params(match.group('params'))
+        if 'id' in params:
+            self.mod = self.params['id']
+        else:
+            self.mod = self.position.file_name
+            self.logger.log(LogEntry(LOG_ERROR, f'Module doesn\'t have "id" parameter', self.position,
+                E_STEX_PARSE_ERROR))
 
 class MODSIG(LmhEnvironment):
     def __init__(self, parent, match):
