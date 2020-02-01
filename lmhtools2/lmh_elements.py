@@ -101,6 +101,21 @@ class TexNode(object):
                 self.position, E_STEX_PARSE_ERROR))
         return []
 
+    def collect_children(self, collect, skip = []):
+        for c in skip:
+            if isinstance(self, c):
+                return []
+
+        for c in collect:
+            if isinstance(self, c):
+                return [self]
+
+        l = []
+        for c in self.children:
+            l += c.collect_children(collect, skip)
+        return l
+
+
 
 # MACROS
 
@@ -108,43 +123,43 @@ class LmhMacro(TexNode):
     def __init__(self, parent, match):
         TexNode.__init__(self, parent.lmhfile, parent, parent.ctx)
         self.match = match
-        self.position = self.lmhfile.get_position(self.match)
+        self.position = self.lmhfile.get_position(self.match.start())
 
 class DEFI(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class TREFI(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class SYMI(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class SYMDEF(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class IMPORTMHMODULE(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class USEMHMODULE(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class GIMPORT(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class GUSE(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 class MHINPUTREF(LmhMacro):
     def __init__(self, parent, match):
-        LmhMacro(self, parent, match)
+        LmhMacro.__init__(self, parent, match)
 
 
 # ENVIRONMENTS
@@ -152,7 +167,7 @@ class MHINPUTREF(LmhMacro):
 class LmhEnvironment(TexNode):
     def __init__(self, parent, match, end_token):
         TexNode.__init__(self, parent.lmhfile, parent, parent.ctx, end_token)
-        self.position = self.lmhfile.get_position(self.match)
+        self.position = self.lmhfile.get_position(match.start())
 
 class MODULE(LmhEnvironment):
     def __init__(self, parent, match):
@@ -187,7 +202,7 @@ class LmhFile(TexNode):
         self.__preprocess_string()
         self.__generate_offset_map()
 
-        tokens = tokenize(self.string, REGEXES)
+        self.parse(tokenize(self.string, REGEXES))
 
 
 

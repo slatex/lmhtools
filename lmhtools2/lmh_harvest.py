@@ -119,6 +119,9 @@ class Harvester(object):
         for path in paths:
             self.files.append(LmhFile(path, self.ctx))
 
+    def load_file(self, path):
+        self.files.append(LmhFile(path, self.ctx))
+
     
 
 
