@@ -1,14 +1,15 @@
 from lmh_logging import *
+from lmh_elements import *
 
 
 class Symbol(object):
-    def __init__(self, symb, repo, directory, module, declared, used=[]):
+    def __init__(self, symb, repo, directory, module, declared, used=None):
         self.symb = symb
         self.repo = repo
         self.directory = directory if directory else ''
         self.module = module
         self.declared = declared
-        self.used = used
+        self.used = used if used else []
 
     def isSame(self, symbol):
         return self.symb == symbol.symb and self.repo == symbol.repo and \
@@ -76,9 +77,23 @@ class Referencer(object):
                 self.__put_symbol(Symbol(defi.symb, p.position.repo, p.position.directory, p.mod, [defi]))
 
         # STEP 2: MARK DECLARED SYMBOLS IN FILES (for efficiency)
-        for s in self.symbols.values():
+        for s in self.get_all_symbols():
             for d in s.declared:
                 d.lmhfile.declared_symbols.append(s)
+
+        # STEP 2.1: LINK MHMODNLS TO MODSIGS
+        for s in self.filemap.values():
+            if s.filetype == 'mhmodnl':
+                s.modsig = None
+                altpos = Position(repo=s.position.repo, directory=s.position.directory, filename=s.position.filename)
+                if '.' in altpos.filename and altpos.filename.split('.')[-1] in LANGS:
+                    altpos.filename = '.'.join(altpos.filename.split('.')[:-1])
+                    f = self.__find_file(altpos)
+                    if f and f.filetype == 'modsig':
+                        s.modsig = f
+                        continue
+                self.ctx.log(LogEntry(LOG_ERROR, f'File appears to be an mhmodnl, but I failed to find a corresponding modsig', s.position, E_SYMB_LINK_ERROR))
+
 
         # STEP 3: LINK ALL REFERENCES
         for f in self.filemap.values():
@@ -87,13 +102,20 @@ class Referencer(object):
                 if not s:
                     self.ctx.log(LogEntry(LOG_ERROR, f'Failed to link "{m.match.group(0)}" to a symbol',
                         m.position, E_SYMB_LINK_ERROR))
-                if m in s.declared: continue
+                    continue
+                if m in s.used: continue
                 s.used.append(m)
 
+
         # STEP 4: LINK SYMBOL EVERYWHERE
-        for s in self.symbols.values():
+        for s in self.get_all_symbols():
             for d in s.declared + s.used:
                 s.symbol = s
+
+    def get_all_symbols(self):
+        for ss in self.symbols.values():
+            for s in ss:
+                yield s
                 
 
     
@@ -115,24 +137,27 @@ class Referencer(object):
             while ind < len(files):
                 f = files[ind]
                 ind += 1
+                if not f: continue
+                if f.filetype == 'mhmodnl':
+                    files.append(f.modsig)
                 for s in f.declared_symbols:
                     if s.module == mod and s.symb == symb:
                         return s
                 for include in f.collect_children([USEMHMODULE, GUSE]):
-                    f = f.target_file
-                    if not f: continue
-                    for s in f.declared_symbols:
+                    ff = include.target_file
+                    if not ff: continue
+                    for s in ff.declared_symbols:
                         if s.module == mod and s.symb == symb:
                             return s
                 for include in f.collect_children([IMPORTMHMODULE, GIMPORT]):
-                    f = include.target_file
-                    if not f: continue
-                    if not f in files:
-                        files.append(f)
+                    ff = include.target_file
+                    if not ff: continue
+                    if not ff in files:
+                        files.append(ff)
 
 
         elif isinstance(x, DEFI) or isinstance(x, SYMI) or isinstance(x, SYMDEF):
-            p = sym.get_parent(goals=[MHMODNL, MODSIG, MODULE])
+            p = x.get_parent(goals=[MHMODNL, MODSIG, MODULE])
             if not p:
                 self.ctx.log(LogEntry(LOG_ERROR, f'Failed to found surrounding module',
                     x.position, E_STEX_PARSE_ERROR))
@@ -149,7 +174,7 @@ class Referencer(object):
 
     def __find_file(self, position):
         directory = position.directory if position.directory else ''
-        key = (position.repo, position.directory, position.filename)
+        key = (position.repo, directory, position.filename)
         if key in self.filemap:
             return self.filemap[key]
         return None

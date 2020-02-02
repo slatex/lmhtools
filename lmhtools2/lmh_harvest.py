@@ -35,11 +35,11 @@ class LmhContext(object):
             raise Exception(f'Failed to determine repo in "{path}"\nKnown repos: {" ".join([r.repo for r in self.repos])}')
 
         if len(restpath) == 0:
-            return Position(repo=repo)
+            return Position(repo=repo.repo)
         if restpath[0] == 'source':
             restpath = restpath[1:]
         else:
-            return Position(repo=repo, path=path)
+            return Position(repo=repo.repo, path=path)
 
         if len(restpath) == 0:
             raise Exception(f'Failed to determine filename in "{path}"')
@@ -49,7 +49,7 @@ class LmhContext(object):
             filename = filename[:-4]
 
         dir_ = '/'.join(restpath[:-1])
-        return Position(repo=repo, directory=dir_, filename=filename, path=path)
+        return Position(repo=repo.repo, directory=dir_, filename=filename, path=path)
 
     def find_repo(self, repo):
         for r in self.repos:

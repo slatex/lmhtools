@@ -6,6 +6,8 @@ import os
 
 class Position(object):
     def __init__(self, repo=None, directory=None, filename=None, fileoffset=None, path=None):
+        if repo:
+            assert isinstance(repo, str)
         self.repo = repo
         self.directory = directory
         self.filename = filename
@@ -23,8 +25,8 @@ class Position(object):
         if self.repo:
             if self.directory and self.filename:
                 return f'{self.repo}/{self.directory}/{self.filename}{offsetstr}'
-            elif self.directory:
-                return f'{self.repo}/{self.file_name}{offsetstr}'
+            elif self.filename:
+                return f'{self.repo}/{self.filename}{offsetstr}'
             return f'{self.repo}'
         return ''
 
@@ -192,6 +194,11 @@ class TREFI(LmhMacro):
                 self.target_mod = parent.mod
         self.symbol = None     # set by referencer
 
+        self.lang = None
+        p = self.get_parent(goals=[MHMODNL, MODULE, GVIEWNL])
+        if p:
+            self.lang = p.lang
+
 
 class SYMI(LmhMacro):
     def __init__(self, parent, match):
@@ -214,7 +221,7 @@ class IMPORTMHMODULE(LmhMacro):
         LmhMacro.__init__(self, parent, match)
         self.params = get_params(match.group('params'))
 
-        repo = self.position.repo.repo
+        repo = self.position.repo
         if 'repos' in self.params:
             self.ctx.log(LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
                 self.position, E_STEX_PARSE_ERROR))
@@ -232,7 +239,7 @@ class IMPORTMHMODULE(LmhMacro):
                 self.position, E_STEX_PARSE_ERROR))
         if r and 'path' in self.params:
             path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
-        self.target_position = Position(repo=r, directory=dir_, filename=mod, path=path)
+        self.target_position = Position(repo=repo, directory=dir_, filename=mod, path=path)
         self.target_file = None
 
 
@@ -241,7 +248,7 @@ class USEMHMODULE(LmhMacro):
         LmhMacro.__init__(self, parent, match)
 
         self.params = get_params(match.group('params'))
-        repo = self.position.repo.repo
+        repo = self.position.repo
         if 'repos' in self.params:
             self.ctx.log(LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
                 self.position, E_STEX_PARSE_ERROR))
@@ -259,7 +266,7 @@ class USEMHMODULE(LmhMacro):
                 self.position, E_STEX_PARSE_ERROR))
         if r and 'path' in self.params:
             path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
-        self.target_position = Position(repo=r, directory=dir_, filename=mod, path=path)
+        self.target_position = Position(repo=repo, directory=dir_, filename=mod, path=path)
         self.target_file = None
 
 class MHINPUTREF(LmhMacro):
@@ -358,27 +365,27 @@ class LmhFile(TexNode):
         self.parse(tokenize(self.string, REGEXES))
         self.declared_symbols = []
 
-#         self.__determine_filetype()
-# 
-#     def __determine_filetype(self):
-#         self.filetype = 'unknown'
-# 
-#         if len(self.children) == 1:
-#             c = self.children[0]
-#             if isinstance(c, MODULE):
-#                 self.filetype = 'module'
-#             elif isinstance(c, MODSIG):
-#                 self.filetype = 'modsig'
-#             elif isinstance(c, MHMODNL):
-#                 self.filetype = 'mhmodnl'
-#             elif isinstance(c, GVIEWSIG):
-#                 self.filetype = 'gviewsig'
-#             elif isinstance(c, GVIEWNL):
-#                 self.filetype = 'gviewnl'
-#             # elif isinstance(c, OMGROUP):
-#             #     self.filetype = 'omgroup'
-#         elif len(self.children) == 0:
-#             self.filetype = 'empty'   # no relevant stex
+        self.__determine_filetype()
+
+    def __determine_filetype(self):
+        self.filetype = 'unknown'
+
+        if len(self.children) == 1:
+            c = self.children[0]
+            if isinstance(c, MODULE):
+                self.filetype = 'module'
+            elif isinstance(c, MODSIG):
+                self.filetype = 'modsig'
+            elif isinstance(c, MHMODNL):
+                self.filetype = 'mhmodnl'
+            elif isinstance(c, GVIEWSIG):
+                self.filetype = 'gviewsig'
+            elif isinstance(c, GVIEWNL):
+                self.filetype = 'gviewnl'
+            # elif isinstance(c, OMGROUP):
+            #     self.filetype = 'omgroup'
+        elif len(self.children) == 0:
+            self.filetype = 'empty'   # no relevant stex
 
 
     commentregex = re.compile('(^|\n)[\t ]*\%[^\n]*\n')
