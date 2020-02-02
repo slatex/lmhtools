@@ -23,6 +23,8 @@ class Position(object):
         if self.repo:
             if self.directory and self.filename:
                 return f'{self.repo}/{self.directory}/{self.filename}{offsetstr}'
+            elif self.directory:
+                return f'{self.repo}/{self.file_name}{offsetstr}'
             return f'{self.repo}'
         return ''
 
@@ -87,7 +89,7 @@ class TexNode(object):
                 self.children.append(GVIEWNL(self, match))
 
             elif tt in ENV_END_TOKENS:
-                self.ctx.logger.log(LogEntry(LOG_ERROR, f'Unexpected environment end: {match.group(0)}',
+                self.ctx.log(LogEntry(LOG_ERROR, f'Unexpected environment end: {match.group(0)}',
                     self.lmhfile.get_position(match.start()), E_STEX_PARSE_ERROR))
                 return []
 
@@ -97,7 +99,7 @@ class TexNode(object):
             else:
                 i += 1
         if self.end_token:
-            self.ctx.logger.log(LogEntry(LOG_ERROR, f'Environment started but not closed: {self.match.group(0)}',
+            self.ctx.log(LogEntry(LOG_ERROR, f'Environment started but not closed: {self.match.group(0)}',
                 self.position, E_STEX_PARSE_ERROR))
         return []
 
@@ -114,6 +116,17 @@ class TexNode(object):
         for c in self.children:
             l += c.collect_children(collect, skip)
         return l
+
+    def get_parent(self, goal=None, goals=[]):
+        assert not goal and goals
+        if goal:
+            goals = [goal]
+        for goal in goals:
+            if isinstance(self, goal):
+                return self
+        if not self.parent:
+            return None
+        return self.parent.get_parent(goals = goals)
 
 
 
@@ -133,25 +146,34 @@ class DEFI(LmhMacro):
         self.symb = self.params['name'] if 'name' in self.params else '-'.join(args)
         self.display = other_arg if other_arg else ' '.join(args)
         if match.group('start')[0] == 'D':
-            self.display[0] = self.display[0].upper()
+            self.display = self.display.capitalize()
         if match.group('plurals'):
             self.display += 's'
+        self.lang = None
+        p = self.get_parent(goals=[MHMODNL, MODULE, GVIEWNL])
+        if p:
+            self.lang = p.lang
+        self.symbol = None     # set by referencer
 
 class TREFI(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
         params = match.group('params')
         args, other_arg = get_args(match, False, self.ctx, self.position)
-        assert not other_arg
-        self.display = ' '.join(args)
+        if match.group('start')[0] != 'a':
+            assert not other_arg
+            self.display = ' '.join(args)
+        else:
+            self.ctx.log(LogEntry(LOG_ERROR, f'Use of atrefi is deprecated (and may result in errors)',
+                self.position, E_STEX_PARSE_ERROR))
+            self.display = other_arg
         if match.group('start').isupper():
-            self.display[0] = self.display[0].upper()
+            self.display = self.display.capitalize()
         if match.group('plurals'):
             self.display += 's'
         self.isdrefi = 'd' in match.group('start')[0].lower()
 
-        # by default, target module is current file
-        self.target_mod = self.position.filename
+        self.target_mod = None
         self.symb = '-'.join(args)
         # with params, the defaults can be changed
         if params:
@@ -160,9 +182,15 @@ class TREFI(LmhMacro):
                 self.target_mod = params.split('?')[0]
                 self.symb = params.split('?')[1]
                 if not match.group('start').lower()[0] in ['m', 'd']:
-                    self.ctx.logger.log(
-                            LogEntry(LOG_ERROR, f'Expected trefi or drefi for "{match.group()}"',
-                                self.position, E_STEX_PARSE_ERROR))
+                    self.ctx.log(LogEntry(LOG_ERROR, f'Expected trefi or drefi for "{match.group()}"',
+                        self.position, E_STEX_PARSE_ERROR))
+        if not self.target_mod:
+            # by default, target module is is current module
+            self.target_mod = self.position.filename
+            parent = self.get_parent(goals=[MODULE, MHMODNL])
+            if parent:
+                self.target_mod = parent.mod
+        self.symbol = None     # set by referencer
 
 
 class SYMI(LmhMacro):
@@ -172,58 +200,67 @@ class SYMI(LmhMacro):
         assert not other_arg
         self.symb = '-'.join(args)
         self.params = get_params(match.group('params'))
+        self.symbol = None     # set by referencer
 
 class SYMDEF(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
         self.params = get_params(match.group('params'))
         self.symb = self.params['name'] if 'name' in self.params else match.group('arg0')
+        self.symbol = None     # set by referencer
 
 class IMPORTMHMODULE(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
-        self.params = get_params(match.group("params"))
+        self.params = get_params(match.group('params'))
 
-        repo = self.position.repo
-        if 'repos' in params:
-            self.ctx.logger.log(
-                    LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
-                        self.position, E_STEX_PARSE_ERROR))
-            repo = params['repos']
-        if 'mhrepos' in params:
-            repo = params['mhrepos']
+        repo = self.position.repo.repo
+        if 'repos' in self.params:
+            self.ctx.log(LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
+                self.position, E_STEX_PARSE_ERROR))
+            repo = self.params['repos']
+        if 'mhrepos' in self.params:
+            repo = self.params['mhrepos']
         dir_ = None
         path = None
         mod = match.group('arg')
         if 'dir' in self.params:
             dir_ = self.params['dir']
-        if 'path' in self.params:
-            r = self.ctx.find_repo(repo)
-            path = os.path.join(r.path, 'source', params['path'], mod + '.tex')
-        self.target_position = Position(repo=repo, directory=dir_, file_name=mod, path=path)
+        r = self.ctx.find_repo(repo)
+        if not r:
+            self.ctx.log(LogEntry(LOG_ERROR, f'Failed to find repo "{repo}" for "{match.group(0)}"',
+                self.position, E_STEX_PARSE_ERROR))
+        if r and 'path' in self.params:
+            path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
+        self.target_position = Position(repo=r, directory=dir_, filename=mod, path=path)
+        self.target_file = None
 
 
 class USEMHMODULE(LmhMacro):
     def __init__(self, parent, match):
         LmhMacro.__init__(self, parent, match)
 
-        repo = self.position.repo
-        if 'repos' in params:
-            self.ctx.logger.log(
-                    LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
-                        self.position, E_STEX_PARSE_ERROR))
-            repo = params['repos']
-        if 'mhrepos' in params:
-            repo = params['mhrepos']
+        self.params = get_params(match.group('params'))
+        repo = self.position.repo.repo
+        if 'repos' in self.params:
+            self.ctx.log(LogEntry(LOG_WARN, f'"repos" is deprecated - use "mhrepos" instead',
+                self.position, E_STEX_PARSE_ERROR))
+            repo = self.params['repos']
+        if 'mhrepos' in self.params:
+            repo = self.params['mhrepos']
         dir_ = None
         path = None
         mod = match.group('arg')
         if 'dir' in self.params:
             dir_ = self.params['dir']
-        if 'path' in self.params:
-            r = self.ctx.find_repo(repo)
-            path = os.path.join(r.path, 'source', params['path'], mod + '.tex')
-        self.target_position = Position(repo=repo, directory=dir_, file_name=mod, path=path)
+        r = self.ctx.find_repo(repo)
+        if not r:
+            self.ctx.log(LogEntry(LOG_ERROR, f'Failed to find repo "{repo}" for "{match.group(0)}"',
+                self.position, E_STEX_PARSE_ERROR))
+        if r and 'path' in self.params:
+            path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
+        self.target_position = Position(repo=r, directory=dir_, filename=mod, path=path)
+        self.target_file = None
 
 class MHINPUTREF(LmhMacro):
     def __init__(self, parent, match):
@@ -234,9 +271,10 @@ class MHINPUTREF(LmhMacro):
         if params:
             repo = params
         a = match.group('arg')
-        file_name = a.split('/')[-1]
+        filename = a.split('/')[-1]
         dir_ = a.split('/')[:-1]
-        self.target_position = Position(repo=repo, file_name=file_name, directory = dir_ if dir_ else None)
+        self.target_position = Position(repo=repo, filename=filename, directory = dir_ if dir_ else None)
+        self.target_file = None
 
 class GIMPORT(LmhMacro):
     def __init__(self, parent, match):
@@ -246,6 +284,8 @@ class GIMPORT(LmhMacro):
         if not self.target_repo:
             self.target_repo = self.position.repo
         self.target_mod = match.group('arg')
+        self.target_position = Position(repo=self.target_repo, filename=self.target_mod, directory=None)
+        self.target_file = None
 
 class GUSE(LmhMacro):
     def __init__(self, parent, match):
@@ -255,6 +295,8 @@ class GUSE(LmhMacro):
         if not self.target_repo:
             self.target_repo = self.position.repo
         self.target_mod = match.group('arg')
+        self.target_position = Position(repo=self.target_repo, filename=self.target_mod, directory=None)
+        self.target_file = None
 
 
 # ENVIRONMENTS
@@ -269,29 +311,37 @@ class MODULE(LmhEnvironment):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_MODULE)
 
         self.params = get_params(match.group('params'))
-        if 'id' in params:
+        if 'id' in self.params:
             self.mod = self.params['id']
         else:
-            self.mod = self.position.file_name
-            self.logger.log(LogEntry(LOG_ERROR, f'Module doesn\'t have "id" parameter', self.position,
+            self.mod = self.position.filename
+            self.ctx.log(LogEntry(LOG_ERROR, f'Module doesn\'t have "id" parameter', self.position,
                 E_STEX_PARSE_ERROR))
+        self.lang = 'mono'
 
 class MODSIG(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_MODSIG)
+        self.mod = match.group('name')
+        self.params = get_params(match.group('params'))
+
 
 class MHMODNL(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_MHMODNL)
+        self.lang = match.group('lang')
+        self.mod = match.group('name')
 
 class GVIEWSIG(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_GVIEWSIG)
+        self.mod = match.group('name')
 
 class GVIEWNL(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_GVIEWNL)
-
+        self.lang = match.group('lang')
+        self.mod = match.group('name')
 
 # FILES
 
@@ -299,14 +349,36 @@ class LmhFile(TexNode):
     def __init__(self, path, ctx):
         TexNode.__init__(self, self, None, ctx)
         self.path = path
-        self.pos = ctx.path_to_pos(path)
+        self.position = ctx.path_to_pos(path)
         with open(path, 'r') as fp:
             self.string = fp.read()
         self.__preprocess_string()
         self.__generate_offset_map()
 
         self.parse(tokenize(self.string, REGEXES))
+        self.declared_symbols = []
 
+#         self.__determine_filetype()
+# 
+#     def __determine_filetype(self):
+#         self.filetype = 'unknown'
+# 
+#         if len(self.children) == 1:
+#             c = self.children[0]
+#             if isinstance(c, MODULE):
+#                 self.filetype = 'module'
+#             elif isinstance(c, MODSIG):
+#                 self.filetype = 'modsig'
+#             elif isinstance(c, MHMODNL):
+#                 self.filetype = 'mhmodnl'
+#             elif isinstance(c, GVIEWSIG):
+#                 self.filetype = 'gviewsig'
+#             elif isinstance(c, GVIEWNL):
+#                 self.filetype = 'gviewnl'
+#             # elif isinstance(c, OMGROUP):
+#             #     self.filetype = 'omgroup'
+#         elif len(self.children) == 0:
+#             self.filetype = 'empty'   # no relevant stex
 
 
     commentregex = re.compile('(^|\n)[\t ]*\%[^\n]*\n')
@@ -337,7 +409,7 @@ class LmhFile(TexNode):
 
     def get_position(self, index):
         offset = self.__get_offset(index)
-        return self.pos.with_offset(offset)
+        return self.position.with_offset(offset)
 
 
 

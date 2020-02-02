@@ -1,4 +1,9 @@
+from lmh_logging import *
 import re
+
+
+LANGS = ['de', 'en', 'zhs', 'zht', 'ro', 'tu', 'ru', 'fi', 'fr']
+LANG_REGEX = '(de)|(en)|(zhs)|(zht)|(ro)|(tu)|(ru)|(fi)|(fr)'
 
 
 TOKEN_BEGIN_MHMODNL  = 1

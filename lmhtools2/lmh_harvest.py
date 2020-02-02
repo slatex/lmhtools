@@ -1,5 +1,6 @@
 from lmh_logging import *
 from lmh_elements import *
+from lmh_referencer import Referencer
 import os
 
 
@@ -9,6 +10,10 @@ class LmhContext(object):
         self.logger = logger
         self.mhdir = os.path.realpath(os.path.abspath(mhdir))
         self.repos = []
+        self.referencer = Referencer(self)
+
+    def log(self, entry):
+        self.logger.log(entry)
 
     def set_repos(self, repos):
         self.repos = repos
@@ -16,23 +21,25 @@ class LmhContext(object):
     def path_to_pos(self, path):
         ''' Transforms a path into a Position object. This requires the repos to be set. '''
         restpath = os.path.relpath(path, self.mhdir).split(os.sep)
+
         repo = None
         for n in range(1, len(restpath)):
             newpath = os.path.realpath(os.path.join(self.mhdir, os.sep.join(restpath[:n])))
             for r in self.repos:
                 if newpath == r.path:
                     repo = r
-                    restpath = restpath[n+1:]
+                    restpath = restpath[n:]
             if repo:
                 break
         if not repo:
             raise Exception(f'Failed to determine repo in "{path}"\nKnown repos: {" ".join([r.repo for r in self.repos])}')
+
         if len(restpath) == 0:
-            return Position(repo=repo.repo)
+            return Position(repo=repo)
         if restpath[0] == 'source':
             restpath = restpath[1:]
         else:
-            return Position(repo=repo.repo, path=path)
+            return Position(repo=repo, path=path)
 
         if len(restpath) == 0:
             raise Exception(f'Failed to determine filename in "{path}"')
@@ -102,8 +109,11 @@ class Harvester(object):
         self.__collect_repos(None)
         self.ctx.set_repos(self.repos)
 
-    def __get_file_list(self):
+    skip_regex = re.compile(f'^(((localpaths)|(all))|(((all)|(glossary))\\.({LANG_REGEX})))\\.tex$')
+    def __get_file_list(self, regex):
         for repo in self.repos:
+            if not re.match(regex, repo.repo):
+                continue
             dir_path = os.path.join(repo.path, 'source')
             for root, dirs, files in os.walk(dir_path):
                 for file_name in files:
@@ -112,21 +122,23 @@ class Harvester(object):
                         continue
 
                     # len('all.zhs.tex') == 11
-                    elif file_name == 'localpaths.tex' or \
-                            (file_name.startswith('all.') and len(file_name) < 12):
+                    # elif file_name == 'localpaths.tex' or \
+                    #        (file_name.startswith('all.') and len(file_name) < 12):
+                    elif Harvester.skip_regex.match(file_name):
                         self.logger.log_skip(f'Skipping {path}', repo.position)
                         continue
                     else:
                         yield path
 
-    def load_files(self):
-        paths = list(self.__get_file_list())
+    def load_files(self, regex='^.*$'):
+        paths = list(self.__get_file_list(regex))
 
         for path in paths:
-            self.files.append(LmhFile(path, self.ctx))
+            self.load_file(path)
 
     def load_file(self, path):
         self.files.append(LmhFile(path, self.ctx))
+        self.ctx.referencer.add_file(self.files[-1])
 
     
 
