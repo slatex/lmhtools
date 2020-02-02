@@ -6,39 +6,44 @@ LANGS = ['de', 'en', 'zhs', 'zht', 'ro', 'tu', 'ru', 'fi', 'fr']
 LANG_REGEX = '(de)|(en)|(zhs)|(zht)|(ro)|(tu)|(ru)|(fi)|(fr)'
 
 
-TOKEN_BEGIN_MHMODNL  = 1
-TOKEN_END_MHMODNL    = 2
-TOKEN_DEFI           = 3
-TOKEN_BEGIN_GVIEWNL  = 4
-TOKEN_END_GVIEWNL    = 5
-TOKEN_TREFI          = 6
-TOKEN_BEGIN_MODSIG   = 7
-TOKEN_END_MODSIG     = 8
-TOKEN_SYMI           = 9
-TOKEN_BEGIN_GVIEWSIG = 10
-TOKEN_END_GVIEWSIG   = 11
-TOKEN_SYMDEF         = 12
-TOKEN_BEGIN_MODULE   = 13
-TOKEN_END_MODULE     = 14
-TOKEN_IMPORTMHMODULE = 15
-TOKEN_USEMHMODULE    = 16
-TOKEN_GIMPORT        = 17
-TOKEN_GUSE           = 18
-TOKEN_MHINPUTREF     = 19
+TOKEN_BEGIN_MHMODNL   = 1
+TOKEN_END_MHMODNL     = 2
+TOKEN_DEFI            = 3
+TOKEN_BEGIN_GVIEWNL   = 4
+TOKEN_END_GVIEWNL     = 5
+TOKEN_TREFI           = 6
+TOKEN_BEGIN_MODSIG    = 7
+TOKEN_END_MODSIG      = 8
+TOKEN_SYMI            = 9
+TOKEN_BEGIN_GVIEWSIG  = 10
+TOKEN_END_GVIEWSIG    = 11
+TOKEN_SYMDEF          = 12
+TOKEN_BEGIN_MODULE    = 13
+TOKEN_END_MODULE      = 14
+TOKEN_IMPORTMHMODULE  = 15
+TOKEN_USEMHMODULE     = 16
+TOKEN_GIMPORT         = 17
+TOKEN_GUSE            = 18
+TOKEN_MHINPUTREF      = 19
+TOKEN_BEGIN_OMGROUP   = 20
+TOKEN_END_OMGROUP     = 21
+TOKEN_COVEREDUPTOHERE = 22
 
 ENV_BEGIN_TOKENS = set([
         TOKEN_BEGIN_MODULE,
         TOKEN_BEGIN_GVIEWSIG,
         TOKEN_BEGIN_GVIEWNL,
         TOKEN_BEGIN_MODSIG,
-        TOKEN_BEGIN_MHMODNL])
+        TOKEN_BEGIN_MHMODNL,
+        TOKEN_BEGIN_OMGROUP])
 
 ENV_END_TOKENS = set([
         TOKEN_END_MODULE,
         TOKEN_END_GVIEWSIG,
         TOKEN_END_GVIEWNL,
         TOKEN_END_MODSIG,
-        TOKEN_END_MHMODNL])
+        TOKEN_END_MHMODNL,
+        TOKEN_END_OMGROUP])
 
 
 # ENV_TOKEN_MAP = {
@@ -178,6 +183,20 @@ re_mhinputref = re.compile(
         r"\{(?P<arg>" + re_arg + r")\}"            # arg
         )
 
+re_begin_omgroup = re.compile(
+        r"\\begin\{omgroup\}"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )
+
+re_end_omgroup = re.compile(
+        r"\\end\{omgroup\}"
+        )
+
+re_covereduptohere = re.compile(
+        r"\\covereduptohere"
+        )
+
 REGEXES = [
         (re_begin_mhmodnl, TOKEN_BEGIN_MHMODNL),
         (re_end_mhmodnl, TOKEN_END_MHMODNL),
@@ -198,6 +217,9 @@ REGEXES = [
         (re_gimport, TOKEN_GIMPORT),
         (re_guse, TOKEN_GUSE),
         (re_mhinputref, TOKEN_MHINPUTREF),
+        (re_begin_omgroup, TOKEN_BEGIN_OMGROUP),
+        (re_end_omgroup, TOKEN_END_OMGROUP),
+        (re_covereduptohere, TOKEN_COVEREDUPTOHERE),
         ]
 
 

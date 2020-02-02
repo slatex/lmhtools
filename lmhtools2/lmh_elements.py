@@ -8,6 +8,8 @@ class Position(object):
     def __init__(self, repo=None, directory=None, filename=None, fileoffset=None, path=None):
         if repo:
             assert isinstance(repo, str)
+        if directory:
+            assert isinstance(directory, str)
         self.repo = repo
         self.directory = directory
         self.filename = filename
@@ -78,6 +80,8 @@ class TexNode(object):
                 self.children.append(GUSE(self, match))
             elif tt == TOKEN_MHINPUTREF:
                 self.children.append(MHINPUTREF(self, match))
+            elif tt == TOKEN_COVEREDUPTOHERE:
+                self.children.append(COVEREDUPTOHERE(self, match))
 
             elif tt == TOKEN_BEGIN_MODULE:
                 self.children.append(MODULE(self, match))
@@ -89,6 +93,8 @@ class TexNode(object):
                 self.children.append(GVIEWSIG(self, match))
             elif tt == TOKEN_BEGIN_GVIEWNL:
                 self.children.append(GVIEWNL(self, match))
+            elif tt == TOKEN_BEGIN_OMGROUP:
+                self.children.append(OMGROUP(self, match))
 
             elif tt in ENV_END_TOKENS:
                 self.ctx.log(LogEntry(LOG_ERROR, f'Unexpected environment end: {match.group(0)}',
@@ -279,7 +285,7 @@ class MHINPUTREF(LmhMacro):
             repo = params
         a = match.group('arg')
         filename = a.split('/')[-1]
-        dir_ = a.split('/')[:-1]
+        dir_ = '/'.join(a.split('/')[:-1])
         self.target_position = Position(repo=repo, filename=filename, directory = dir_ if dir_ else None)
         self.target_file = None
 
@@ -305,6 +311,10 @@ class GUSE(LmhMacro):
         self.target_position = Position(repo=self.target_repo, filename=self.target_mod, directory=None)
         self.target_file = None
 
+class COVEREDUPTOHERE(LmhMacro):
+    def __init__(self, parent, match):
+        LmhMacro.__init__(self, parent, match)
+
 
 # ENVIRONMENTS
 
@@ -312,6 +322,7 @@ class LmhEnvironment(TexNode):
     def __init__(self, parent, match, end_token):
         TexNode.__init__(self, parent.lmhfile, parent, parent.ctx, end_token)
         self.position = self.lmhfile.get_position(match.start())
+        self.match = match
 
 class MODULE(LmhEnvironment):
     def __init__(self, parent, match):
@@ -349,6 +360,13 @@ class GVIEWNL(LmhEnvironment):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_GVIEWNL)
         self.lang = match.group('lang')
         self.mod = match.group('name')
+
+class OMGROUP(LmhEnvironment):
+    def __init__(self, parent, match):
+        LmhEnvironment.__init__(self, parent, match, TOKEN_END_OMGROUP)
+        self.params = get_params(match.group('params'))
+        self.title = match.group('arg')
+
 
 # FILES
 

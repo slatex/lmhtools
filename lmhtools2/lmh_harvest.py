@@ -4,6 +4,18 @@ from lmh_referencer import Referencer
 import os
 
 
+def get_mathhub_dir(path, mayContainSymbLinks = True):
+    """ Extracts the MathHub directory from a path """
+    mathhub_dir = os.path.abspath(path)
+    while not (mathhub_dir.endswith("MathHub") or mathhub_dir.endswith("MMT-content")):
+        new = os.path.split(mathhub_dir)[0]
+        if new == mathhub_dir:  # reached root
+            if mayContainSymbLinks:
+                return get_mathhub_dir(os.path.realpath(path), False)
+            raise Exception("Failed to infer MathHub directory (it is required that a parent directory called 'MathHub' or 'MMT-content' exists)")
+        mathhub_dir = new
+    return mathhub_dir
+
 
 class LmhContext(object):
     def __init__(self, logger, mhdir):
