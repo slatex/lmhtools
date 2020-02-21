@@ -5,30 +5,30 @@ import os
 
 
 class Position(object):
-    def __init__(self, repo=None, directory=None, filename=None, fileoffset=None, path=None):
+    def __init__(self, repo=None, directory=None, modname=None, fileoffset=None, path=None):
         if repo:
             assert isinstance(repo, str)
         if directory:
             assert isinstance(directory, str)
         self.repo = repo
         self.directory = directory
-        self.filename = filename
+        self.modname = modname
         self.fileoffset = fileoffset
         self.path = path
 
     def with_offset(self, offset):
         return Position(repo=self.repo, directory=self.directory,
-                filename=self.filename, fileoffset=offset, path=self.path)
+                modname=self.modname, fileoffset=offset, path=self.path)
 
     def toString(self, short=False):
         offsetstr = ':' + self.fileoffset.toString() if self.fileoffset else ''
         if (not short and self.path) or not self.repo:
             return f'{self.path}{offsetstr}'
         if self.repo:
-            if self.directory and self.filename:
-                return f'{self.repo}/{self.directory}/{self.filename}{offsetstr}'
-            elif self.filename:
-                return f'{self.repo}/{self.filename}{offsetstr}'
+            if self.directory and self.modname:
+                return f'{self.repo}/{self.directory}/{self.modname}{offsetstr}'
+            elif self.modname:
+                return f'{self.repo}/{self.modname}{offsetstr}'
             return f'{self.repo}'
         return ''
 
@@ -194,7 +194,7 @@ class TREFI(LmhMacro):
                         self.position, E_STEX_PARSE_ERROR))
         if not self.target_mod:
             # by default, target module is is current module
-            self.target_mod = self.position.filename
+            self.target_mod = self.position.modname
             parent = self.get_parent(goals=[MODULE, MHMODNL])
             if parent:
                 self.target_mod = parent.mod
@@ -244,8 +244,9 @@ class IMPORTMHMODULE(LmhMacro):
             self.ctx.log(LogEntry(LOG_ERROR, f'Failed to find repo "{repo}" for "{match.group(0)}"',
                 self.position, E_STEX_PARSE_ERROR))
         if r and 'path' in self.params:
-            path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
-        self.target_position = Position(repo=repo, directory=dir_, filename=mod, path=path)
+            path = os.path.join(r.path, 'source', self.params['path'] + '.tex')
+            dir_ = '/'.join(self.params['path'].split('/')[:-1])
+        self.target_position = Position(repo=repo, directory=dir_, modname=mod, path=path)
         self.target_file = None
 
 
@@ -271,8 +272,9 @@ class USEMHMODULE(LmhMacro):
             self.ctx.log(LogEntry(LOG_ERROR, f'Failed to find repo "{repo}" for "{match.group(0)}"',
                 self.position, E_STEX_PARSE_ERROR))
         if r and 'path' in self.params:
-            path = os.path.join(r.path, 'source', self.params['path'], mod + '.tex')
-        self.target_position = Position(repo=repo, directory=dir_, filename=mod, path=path)
+            path = os.path.join(r.path, 'source', self.params['path'] + '.tex')
+            dir_ = '/'.join(self.params['path'].split('/')[:-1])
+        self.target_position = Position(repo=repo, directory=dir_, modname=mod, path=path)
         self.target_file = None
 
 class MHINPUTREF(LmhMacro):
@@ -284,9 +286,9 @@ class MHINPUTREF(LmhMacro):
         if params:
             repo = params
         a = match.group('arg')
-        filename = a.split('/')[-1]
+        modname = a.split('/')[-1]
         dir_ = '/'.join(a.split('/')[:-1])
-        self.target_position = Position(repo=repo, filename=filename, directory = dir_ if dir_ else None)
+        self.target_position = Position(repo=repo, modname=modname, directory = dir_ if dir_ else None)
         self.target_file = None
 
 class GIMPORT(LmhMacro):
@@ -297,7 +299,7 @@ class GIMPORT(LmhMacro):
         if not self.target_repo:
             self.target_repo = self.position.repo
         self.target_mod = match.group('arg')
-        self.target_position = Position(repo=self.target_repo, filename=self.target_mod, directory=None)
+        self.target_position = Position(repo=self.target_repo, modname=self.target_mod, directory=None)
         self.target_file = None
 
 class GUSE(LmhMacro):
@@ -308,7 +310,7 @@ class GUSE(LmhMacro):
         if not self.target_repo:
             self.target_repo = self.position.repo
         self.target_mod = match.group('arg')
-        self.target_position = Position(repo=self.target_repo, filename=self.target_mod, directory=None)
+        self.target_position = Position(repo=self.target_repo, modname=self.target_mod, directory=None)
         self.target_file = None
 
 class COVEREDUPTOHERE(LmhMacro):
@@ -332,9 +334,10 @@ class MODULE(LmhEnvironment):
         if 'id' in self.params:
             self.mod = self.params['id']
         else:
-            self.mod = self.position.filename
+            self.mod = self.position.modname
             self.ctx.log(LogEntry(LOG_ERROR, f'Module doesn\'t have "id" parameter', self.position,
                 E_STEX_PARSE_ERROR))
+        self.position.modname = self.mod
         self.lang = 'mono'
 
 class MODSIG(LmhEnvironment):
@@ -365,7 +368,11 @@ class OMGROUP(LmhEnvironment):
     def __init__(self, parent, match):
         LmhEnvironment.__init__(self, parent, match, TOKEN_END_OMGROUP)
         self.params = get_params(match.group('params'))
-        self.title = match.group('arg')
+        self.isblind = bool(match.group('blind'))
+        if self.isblind:
+            self.title = 'blindomgroup'
+        else:
+            self.title = match.group('arg')
 
 
 # FILES

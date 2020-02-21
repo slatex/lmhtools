@@ -19,6 +19,7 @@ E_MANIFEST_ERROR = 3            # error in META-INF/MANIFEST.MF
 E_STEX_PARSE_ERROR = 4          # error while parsing stex
 E_DUPLICATE_MODULE = 5
 E_SYMB_LINK_ERROR = 6           # failed to link e.g. a trefi to a symbol
+E_FILENAME_MISMATCH = 7
 
 
 

@@ -61,7 +61,7 @@ class LmhContext(object):
             filename = filename[:-4]
 
         dir_ = '/'.join(restpath[:-1])
-        return Position(repo=repo.repo, directory=dir_, filename=filename, path=path)
+        return Position(repo=repo.repo, directory=dir_, modname=filename, path=path)
 
     def find_repo(self, repo):
         for r in self.repos:

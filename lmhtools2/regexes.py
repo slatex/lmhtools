@@ -184,13 +184,13 @@ re_mhinputref = re.compile(
         )
 
 re_begin_omgroup = re.compile(
-        r"\\begin\{omgroup\}"
+        r"\\begin\{(?P<blind>blind)?omgroup\}"
         r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
-        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        r"(\{(?P<arg>" + re_arg + r")\})?"            # arg
         )
 
 re_end_omgroup = re.compile(
-        r"\\end\{omgroup\}"
+        r"\\end\{(?P<blind>blind)?omgroup\}"
         )
 
 re_covereduptohere = re.compile(

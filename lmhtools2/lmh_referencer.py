@@ -29,10 +29,12 @@ class Referencer(object):
     def __init__(self, ctx):
         self.ctx = ctx
 
-        # (repo, dir, filename) : lmhfile
+        # (repo, dir, modname) : lmhfile
         # dir should be string (not None)
-        # filename without .tex of course
+        # modname without .tex of course
         self.filemap = {}
+
+        self.simplefilemap = {}   # simply path to file
 
         # string (symbol name) : list[Symbol object]
         self.symbols = {}
@@ -41,16 +43,31 @@ class Referencer(object):
         if self.symbols:
             raise Exception('Can\'t add new files after the symbol generation')
 
+#         if len(lmhfile.children) == 1 and isinstance(lmhfile.children[0], MODULE):
+#             nf = lmhfile.children[0].position.modname
+#             if lmhfile.position.modname != nf:
+#                 self.ctx.log(LogEntry(LOG_WARN, f'Filename ({lmhfile.position.modname}) does not match module name ({nf})',
+#                     lmhfile.position, E_FILENAME_MISMATCH))
+#                 lmhfile.position.modname = nf
+
         pos = lmhfile.position
-        key = (pos.repo, pos.directory if pos.directory else '', pos.filename)
+        key = (pos.repo, pos.directory if pos.directory else '', pos.modname)
 
         if key in self.filemap:
             self.ctx.log(LogEntry(LOG_ERROR,
                 f'There is already an entry for {pos.toString(True)}\n{key}  {lmhfile.position.path}  {self.filemap[key].position.path}',
                 #f'There is already an entry for {pos.toString(True)}',
                 pos, E_DUPLICATE_MODULE))
-            return
-        self.filemap[key] = lmhfile
+        else:
+            self.filemap[key] = lmhfile
+
+        if pos.path:
+            if pos.path in self.simplefilemap:
+                self.ctx.log(LogEntry(LOG_ERROR,
+                    f'There is already an entry for {pos.path}',
+                    pos, E_DUPLICATE_MODULE))
+            else:
+                self.simplefilemap[pos.path] = lmhfile
 
     
 
@@ -85,9 +102,9 @@ class Referencer(object):
         for s in self.filemap.values():
             if s.filetype == 'mhmodnl':
                 s.modsig = None
-                altpos = Position(repo=s.position.repo, directory=s.position.directory, filename=s.position.filename)
-                if '.' in altpos.filename and altpos.filename.split('.')[-1] in LANGS:
-                    altpos.filename = '.'.join(altpos.filename.split('.')[:-1])
+                altpos = Position(repo=s.position.repo, directory=s.position.directory, modname=s.position.modname)
+                if '.' in altpos.modname and altpos.modname.split('.')[-1] in LANGS:
+                    altpos.modname = '.'.join(altpos.modname.split('.')[:-1])
                     f = self.__find_file(altpos)
                     if f and f.filetype == 'modsig':
                         s.modsig = f
@@ -173,13 +190,13 @@ class Referencer(object):
 
 
     def __find_file(self, position):
+        if position.path and position.path in self.simplefilemap:
+            return self.simplefilemap[position.path]
         directory = position.directory if position.directory else ''
-        key = (position.repo, directory, position.filename)
+        key = (position.repo, directory, position.modname)
         if key in self.filemap:
             return self.filemap[key]
         return None
-        
-
 
 
 
