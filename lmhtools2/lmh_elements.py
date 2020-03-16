@@ -60,6 +60,7 @@ class TexNode(object):
         while i < len(tokens):
             match, tt = tokens[i]
             if tt == self.end_token:
+                self.end_match = match
                 return tokens[i+1:]
 
             if tt == TOKEN_DEFI:
@@ -325,6 +326,12 @@ class LmhEnvironment(TexNode):
         TexNode.__init__(self, parent.lmhfile, parent, parent.ctx, end_token)
         self.position = self.lmhfile.get_position(match.start())
         self.match = match
+        self.end_match = None
+    
+    def get_content(self):
+        if not self.end_match:
+            raise Exception("end_match not set")
+        return self.lmhfile.string[self.match.end():self.end_match.start()]
 
 class MODULE(LmhEnvironment):
     def __init__(self, parent, match):
@@ -391,6 +398,9 @@ class LmhFile(TexNode):
         self.declared_symbols = []
 
         self.__determine_filetype()
+
+    def get_content(self):
+        return self.string
 
     def __determine_filetype(self):
         self.filetype = 'unknown'

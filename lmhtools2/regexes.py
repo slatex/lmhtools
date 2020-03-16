@@ -272,3 +272,12 @@ def get_args(match, is_symi, ctx, position):
             position, E_STEX_PARSE_ERROR))
     return (args, other_arg)
 
+
+# OTHER REGEXES (NOT REGULARLY PARSED)
+
+
+re_sref = re.compile(
+        r"\\sref\s*"
+        r"(?:\[(?P<params>[^\]]*)\])?\s*"          # parameters
+        r"\{(?P<arg>" + re_arg + r")\}"            # arg
+        )

@@ -5,6 +5,8 @@
 from lmh_harvest import *
 from lmh_logging import *
 from lmh_elements import *
+import regexes
+import re
 
 import os
 import sys
@@ -142,10 +144,14 @@ jsongraph = {'nodes':[], 'edges':[], 'chapters':[]}
 
 actualnodes = set()
 
+
+ADD_SREFS = True
+
 for node in nodes.values():
     if not node.alive:
         continue
-    if node.isomgroup():
+# WE HAVE TO SHOW OMGROUPS TO HAVE EDGES TO THEM
+    if node.isomgroup() and not ADD_SREFS:
         continue
     if node.texnode == root_lmhfile:
         continue
@@ -169,6 +175,27 @@ for node in nodes.values():
             'label' : '',
             })
 
+# ADD SREFS (ONLY THE ONES INTO OMGROUPS WILL WORK)
+if ADD_SREFS:
+    nodeidmap = {}
+    for node in actualnodes:
+        if not node.isomgroup(): continue
+        id_ = node.texnode.position.modname
+        if not id_: continue
+        nodeidmap[id_] = node
+    for node in actualnodes:
+        for match in re.finditer(regexes.re_sref, node.texnode.get_content()):
+            id_ = match.group('arg')
+            print('id:', id_)
+            if id_ not in nodeidmap: continue  # this is quite possible, since refs can be to examples, definitions, ...
+            print('YES')
+            jsongraph['edges'].append({
+                'id' : 'sref:' + node.get_id() + ';' + nodeidmap[id_].get_id(),
+                'style' : 'reference',
+                'from' : node.get_id(),
+                'to' : nodeidmap[id_].get_id(),
+                'label' : '',
+                })
 
 
 def chapterdfs(node, j, depth, l):
