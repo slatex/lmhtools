@@ -44,7 +44,7 @@ def get_pre_post(group, mathhub_dir):
     return (pre, post)
 
 
-ppp_regex = re.compile(r'^ *\%\%\%.*$')
+ppp_regex = re.compile(r'^ *\%\%\%[^\%].*$')
 def filter_ppp(s):
     ''' removes %%%.* lines '''
     result = ''
@@ -76,7 +76,6 @@ def get_tex_files_in_group(archives):
 #         return wrapped
 #     return wrapper
 
-begindoc_regex = re.compile(r'\\begin\{document\}')
 
 # # @wrap_with_semaphore(semaphore)
 # async def process_file(filename, pre, post, semaphore):
@@ -89,13 +88,21 @@ begindoc_regex = re.compile(r'\\begin\{document\}')
 #             await fp.write(pre + filter_ppp(content) + post)
 #         return 1
 
+begindoc_regex = re.compile(r'\\begin\{document\}')
+localwords_regex = re.compile(r'^ *\% *LocalWords:.*$')
 def process_file(filename, pre, post):
+    localwords = ''
+    content = ''
     with open(filename, 'r') as fp:
-        content = fp.read()
-        if begindoc_regex.search(content):
-            return 0    # doesn't require processing
+        for line in fp:
+            if localwords_regex.match(line):
+                localwords += line
+            else: 
+                content += line
+    if begindoc_regex.search(content):
+        return 0    # doesn't require processing
     with open(filename, 'w') as fp:
-        fp.write(pre + filter_ppp(content) + post)
+        fp.write(pre + filter_ppp(content) + post + localwords)
     return 1
 
 
