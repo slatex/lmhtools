@@ -41,7 +41,7 @@ def get_pre_post(group, mathhub_dir):
         pre = filter_ppp(fp.read())
     with open(path('post'), 'r') as fp:
         post = filter_ppp(fp.read())
-        post = '\\libinput{post}\n'
+        post = '\\end{document}\n'
     return (pre, post)
 
 
