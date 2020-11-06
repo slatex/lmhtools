@@ -795,12 +795,17 @@ def harvest_text(string, ctx):
             params = get_params(match.group("params"))
             repo = ctx.repo
             if "repos" in params:
+                ctx.log("Warning: Use of parameter 'repos' is deprecated -- use mhrepos instead: ", 2, get_file_pos_str(string, match.start()))
                 repo = os.path.join(ctx.mathhub_path, params["repos"])
+            if "mhrepos" in params:
+                repo = os.path.join(ctx.mathhub_path, params["mhrepos"])
             file_name = match.group("arg") + ".tex"
             if token_type == TOKEN_MHINPUTREF:
                 path = os.path.join(repo, "source", file_name)
             elif "path" in params:
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
+            elif "dir" in params:
+                path = os.path.join(repo, "source", params["dir"], file_name)
             else:
                 path = os.path.join(os.path.split(ctx.file)[0], file_name)
             if token_type == TOKEN_USEMHMODULE:
