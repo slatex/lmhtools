@@ -709,6 +709,8 @@ def harvest_mono(string, name, ctx):
                 repo = os.path.join(ctx.mathhub_path, params["mhrepos"])
             file_name = match.group("arg") + ".tex"
             if token_type == TOKEN_MHINPUTREF:
+                if match.group("params"):
+                    repo = os.path.join(ctx.mathhub_path, match.group("params"))
                 path = os.path.join(repo, "source", file_name)
             elif "path" in params:
                 path = os.path.join(repo, "source", params["path"]) + ".tex"
@@ -801,6 +803,8 @@ def harvest_text(string, ctx):
                 repo = os.path.join(ctx.mathhub_path, params["mhrepos"])
             file_name = match.group("arg") + ".tex"
             if token_type == TOKEN_MHINPUTREF:
+                if match.group("params"):
+                    repo = os.path.join(ctx.mathhub_path, match.group("params"))
                 path = os.path.join(repo, "source", file_name)
             elif "path" in params:
                 path = os.path.join(repo, "source", params["path"]) + ".tex"

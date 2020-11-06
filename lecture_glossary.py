@@ -45,7 +45,7 @@ def getdefisandtrefis():
             if not os.path.isfile(filename):
                 print("File " + filename + " doesn't exist")
                 continue
-            ctx.repo = harvest.split_path_repo_doc(filename)[1]
+            ctx.repo = os.path.join(mathhub_dir, harvest.split_path_repo_doc(filename)[0])
             ctx.gatherer.push_repo(ctx.repo, ctx)
             root, name = os.path.split(filename)
             harvest.harvest_file(root, name, ctx)
