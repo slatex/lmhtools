@@ -64,7 +64,7 @@ class Context(object):
 TOKEN_MHINPUTREF       = 0
 TOKEN_BEGIN_OMGROUP    = 1
 TOKEN_END_OMGROUP      = 2
-TOKEN_COVEREDUPTOHERE  = 3
+TOKEN_PREMATURESTOP  = 3
 
 
 re_arg_core = r"(?:[^\{\}\$]|(?:\$[^\$]+\$)|(\{[^\{\}\$]*\}))+"
@@ -74,16 +74,16 @@ re_param = r"(?:\[(?P<params>[^\]]*)\])?\s*"
 re_mhinputref       = re.compile(r"\\(mhinputref|input)\*?" + re_param + re_arg)
 re_begin_omgroup    = re.compile(r"\\begin\{omgroup\}" + re_param + re_arg)
 re_end_omgroup      = re.compile(r"\\end\{omgroup\}")
-re_covereduptohere = re.compile(r"\\covereduptohere")
+re_prematurestop = re.compile(r"\\prematurestop")
 
 regexes = [
         (re_mhinputref, TOKEN_MHINPUTREF),
         (re_begin_omgroup, TOKEN_BEGIN_OMGROUP),
         (re_end_omgroup, TOKEN_END_OMGROUP),
-        (re_covereduptohere, TOKEN_COVEREDUPTOHERE),
+        (re_prematurestop, TOKEN_PREMATURESTOP),
         ]
 
-class CoveredUntilHereException(Exception):
+class PrematureStopException(Exception):
     pass
 
 def recurse_omgroup(context, i, tokens):
@@ -99,7 +99,7 @@ def recurse_omgroup(context, i, tokens):
     i += 1
     recurse_into = []
     found_end = False
-    should_stop_since_covereduptohere = False
+    should_stop_since_prematurestop = False
     while i < len(tokens):
         (match, token_type) = tokens[i]
         if token_type == TOKEN_END_OMGROUP:
@@ -116,16 +116,16 @@ def recurse_omgroup(context, i, tokens):
             context.push_mhinputref(repo, doc)
             recurse_into.append((repo, doc))
             i += 1
-        elif token_type == TOKEN_COVEREDUPTOHERE:
+        elif token_type == TOKEN_PREMATURESTOP:
             if context.onlycovered:
-                should_stop_since_covereduptohere = True
+                should_stop_since_prematurestop = True
                 break
             i += 1
         else:
             context.throw(f"Unexpected token: '{match.group(0)}'")
             i += 1
 
-    if (not should_stop_since_covereduptohere) and not found_end:
+    if (not should_stop_since_prematurestop) and not found_end:
         context.throw("Missing \\end{omgroup}")
 
     context.pop_mod()
@@ -134,8 +134,8 @@ def recurse_omgroup(context, i, tokens):
             context.push_doc(repo, doc)
             recurse_file(context)
 
-    if should_stop_since_covereduptohere:
-        raise CoveredUntilHereException()
+    if should_stop_since_prematurestop:
+        raise PrematureStopException()
 
     return i
         
@@ -153,8 +153,8 @@ def recurse_file(context):
             (match, token_type) = tokens[i]
             if token_type == TOKEN_BEGIN_OMGROUP:
                 i = recurse_omgroup(context, i, tokens)
-            elif token_type == TOKEN_COVEREDUPTOHERE:
-                raise CoveredUntilHereException()
+            elif token_type == TOKEN_PREMATURESTOP:
+                raise PrematureStopException()
             else:
                 context.throw(f"Unexpected token: '{match.group(0)}'")
                 i += 1
@@ -181,7 +181,7 @@ def add_omgroup_data(mathhub, root_repo, root_doc, graph, onlycovered = False):
     context = Context(mathhub, root_repo, root_doc, onlycovered)
     try:
         recurse_file(context)
-    except CoveredUntilHereException:
+    except PrematureStopException:
         pass
 
     # process data
