@@ -600,9 +600,9 @@ def harvest_nl(string, name, lang, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
-                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
-                                get_file_pos_str(string, match.start()))
+#                     if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+#                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
+#                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_BEGIN_MHMODNL:
@@ -689,9 +689,9 @@ def harvest_mono(string, name, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
-                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
-                                get_file_pos_str(string, match.start()))
+#                     if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+#                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
+#                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type in [TOKEN_IMPORTMHMODULE, TOKEN_USEMHMODULE, TOKEN_MHINPUTREF]:
@@ -788,9 +788,9 @@ def harvest_text(string, ctx):
                 if "?" in params:
                     targetmodule = params.split("?")[0]
                     tname = params.split("?")[1]
-                    if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
-                        ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
-                                get_file_pos_str(string, match.start()))
+#                     if not match.group("start").lower()[0] in ["m", "d"]:  # mtrefi or drefi
+#                         ctx.log(f"Expected mtrefi or drefi for '{match.group(0)}'", 1,
+#                                 get_file_pos_str(string, match.start()))
 
             ctx.gatherer.push_trefi(tname, targetmodule, isdrefi, get_file_pos_str(string, match.start()), ctx)
         elif token_type == TOKEN_USEMHMODULE or token_type == TOKEN_MHINPUTREF:
