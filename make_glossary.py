@@ -35,7 +35,7 @@ re_end_definition = re.compile(
         )
 
 # alternative environments for definitions
-def_alternatives = ["n?omtext", "assertion", "example", "example"]
+def_alternatives = ["n?omtext", "assertion", "example"]
 re_begin_def_alternatives = \
     [re.compile(r"\\begin\s*\{" + e + r"\}\s*(?:\[[^\]]*\])?") for e in def_alternatives]
 re_end_def_alternatives = \
@@ -50,14 +50,46 @@ re_trefi2 = re.compile(   # stuff like \trefi[?
         )
 
 def findSurroundingEnvironment(string, startregex, endregex, offset):
-    begins = [(harvest.get_file_position(string, match.end()), match.end()) for match in re.finditer(startregex, string)]
-    ends = [(harvest.get_file_position(string, match.start()), match.start()) for match in re.finditer(endregex, string)]
-    # find relevant begin/end
-    begins = [(p,o) for (p,o) in begins if p <= offset]
-    ends = [(p,o) for (p,o) in ends if p > offset]
-    if len(begins) == 0 or len(ends) == 0:
+    begins = [(harvest.get_file_position(string, match.end()), match.end(), 'b') for match in re.finditer(startregex, string)]
+    ends = [(harvest.get_file_position(string, match.start()), match.start(), 'e') for match in re.finditer(endregex, string)]
+    # TODO: Write a simpler/shorter/more readable algorithm...
+    a = sorted(begins + ends, key = lambda t : t[1])
+    if not a: return None
+    lastOpen = []
+    before = True
+    left = None
+    right = None
+    for i in range(len(a)):
+        if a[i][0] <= offset:
+            if a[i][2] == 'b':
+                lastOpen.append(i)
+            else:
+                if not lastOpen:
+                    return None   # TODO: log error
+                else:
+                    lastOpen = lastOpen[:-1]
+        else:
+            if before:
+                before = False
+                if not lastOpen:
+                    return None
+                left = lastOpen[-1]
+                toClose = 0
+            if a[i][2] == 'e':
+                if toClose:
+                    toClose -= 1
+                else:
+                    right = i
+                    break
+            else:
+                toClose += 1
+
+    if left == None or right == None:
         return None
-    return string[begins[-1][1]:ends[0][1]]    # without definition environment
+    else:
+        return string[a[left][1]:a[right][1]]
+
+
 
 def findSurroundingDefinition(string, offset):
     result = findSurroundingEnvironment(string, re_begin_definition, re_end_definition, offset)
