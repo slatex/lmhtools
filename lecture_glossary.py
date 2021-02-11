@@ -19,7 +19,10 @@ parser = argparse.ArgumentParser(description="Script for generating a glossary f
 parser.add_argument("INFILE", help=".tex file for which the glossary shall be generated (typically path/to/notes.tex)")
 parser.add_argument("LANGUAGE", help="language of the glossary (e.g. 'en' or 'de')")
 parser.add_argument("OUTFILE", help="output file")
+parser.add_argument("-b", "--big", action="store_true", help="Cover the recursive closure")
 args = parser.parse_args()
+
+BIG = args.big
 
 mathhub_dir = harvest.get_mathhub_dir(args.INFILE)
 root_repo, root_doc = harvest.split_path_repo_doc(args.INFILE)
@@ -40,6 +43,7 @@ def getdefisandtrefis():
     ctx = harvest.HarvestContext(logger, harvest.DataGatherer(), mathhub_dir)
 
     newfiles = displayedfiles[:]
+
     while newfiles:
         for filename in newfiles:
             if not os.path.isfile(filename):
@@ -51,8 +55,14 @@ def getdefisandtrefis():
             harvest.harvest_file(root, name, ctx)
         
         newfiles = []
-        for inp in ctx.gatherer.mhinputrefs:
-            destfile = inp["dest_path"]
+        fringe = [m["dest_path"] for m in ctx.gatherer.mhinputrefs]
+        if BIG:
+            fringe += [m["dest_path"] for m in ctx.gatherer.importmhmodules]
+            # both signature and language bindings?
+            fringe += [os.path.join(mathhub_dir, m["dest_repo"], "source", m["dest_mod"]+"."+args.LANGUAGE+".tex") for m in ctx.gatherer.gimports]
+            fringe += [os.path.join(mathhub_dir, m["dest_repo"], "source", m["dest_mod"]+".tex") for m in ctx.gatherer.gimports]
+
+        for destfile in fringe:
             if destfile not in displayedfiles:
                 newfiles.append(destfile)
                 displayedfiles.append(destfile)
