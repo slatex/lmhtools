@@ -146,7 +146,7 @@ for archive in USED_ARCHIVES:
                 shutil.copytree(m(rr, 'meta-inf'), t(rr, 'meta-inf'))
 
     rr = os.path.sep.join(r[:i+1])
-    if os.path.isdir(m(rr, 'META-INF')):
+    if os.path.isdir(m(rr, 'META-INF')) and not os.path.isdir(t(rr, 'META-INF')):  # otherwise problems on case-insensitive file systems (as 'meta-inf' gets copied)
         shutil.copytree(m(rr, 'META-INF'), t(rr, 'META-INF'))
 
 # COPY REQUIRED FILES
