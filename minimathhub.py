@@ -20,7 +20,7 @@ if not os.path.isdir(MATHHUB):
     print(f'{MATHHUB} is not a valid directory')
     sys.exit(1)
 
-TARGET = os.path.realpath('minimathhub')
+TARGET = os.path.realpath('lmh')
 if os.path.isdir(TARGET):
     print(f'{TARGET} already exists')
     sys.exit(1)
