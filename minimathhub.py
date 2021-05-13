@@ -151,7 +151,7 @@ for archive in USED_ARCHIVES:
         if not os.path.isdir(t(rr)):
             os.mkdir(t(rr))
             if os.path.isdir(m(rr, 'meta-inf')):
-                shutil.copytree(m(rr, 'meta-inf'), t(rr, 'meta-inf'))
+                shutil.copytree(m(rr, 'meta-inf'), t(rr, 'meta-inf'), ignore=lambda e,l : ['.git', 'applications'])
 
     rr = os.path.sep.join(r[:i+1])
     if os.path.isdir(m(rr, 'META-INF')) and not os.path.isdir(t(rr, 'META-INF')):  # otherwise problems on case-insensitive file systems (as 'meta-inf' gets copied)
