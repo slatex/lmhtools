@@ -9,8 +9,15 @@ if not FILE.endswith('.tex'):
     sys.exit(1)
 
 MATHHUB = os.path.realpath(os.getenv('MATHHUB'))
+# TODO: Use argparse
+if '--mathhub' in sys.argv[:-1]:
+    MATHHUB = sys.argv[sys.argv.index('--mathhub')+1]
 if not MATHHUB:
     print('MATHHUB is not set')
+    sys.exit(1)
+
+if not os.path.isdir(MATHHUB):
+    print(f'{MATHHUB} is not a valid directory')
     sys.exit(1)
 
 TARGET = os.path.realpath('minimathhub')
@@ -133,11 +140,12 @@ FILE_TO_ARCHIVE = {f : getArchive(f) for f in USED_FILES}
 USED_ARCHIVES = set(FILE_TO_ARCHIVE.values()) - {None}
 
 
+m = lambda *x : os.path.join(MATHHUB, *x)
+t = lambda *x : os.path.join(TARGET, *x)
+
 # COPY REQUIRED ARCHIVES
 for archive in USED_ARCHIVES:
     r = os.path.relpath(ARCHIVES[archive], MATHHUB).split(os.path.sep)
-    m = lambda *x : os.path.join(MATHHUB, *x)
-    t = lambda *x : os.path.join(TARGET, *x)
     for i in range(len(r)):
         rr = os.path.sep.join(r[:i+1])
         if not os.path.isdir(t(rr)):
