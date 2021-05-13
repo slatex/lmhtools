@@ -159,6 +159,8 @@ for archive in USED_ARCHIVES:
 
 # COPY REQUIRED FILES
 for f in USED_FILES:
+    if not FILE_TO_ARCHIVE[f]:
+        continue
     r = os.path.relpath(f, MATHHUB).split(os.path.sep)
     for i in range(len(r[:-1])):
         rr = os.path.sep.join(r[:i+1])
